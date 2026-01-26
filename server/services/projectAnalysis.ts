@@ -99,7 +99,7 @@ Analyze the relationships based on both project names AND context. If merging pr
 
     const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o", // Use the newest model as per blueprint
+      model: "gpt-5.2",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: analysisPrompt }

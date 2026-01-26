@@ -408,7 +408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Test with a simple completion
       const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [{ role: "user", content: "Say 'API key is working'" }],
         max_tokens: 10,
       });
@@ -416,7 +416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (response.choices[0]?.message?.content) {
         res.json({ 
           message: "API key is valid and working",
-          model: "gpt-4o-mini",
+          model: "gpt-5.2",
           status: "connected"
         });
       } else {

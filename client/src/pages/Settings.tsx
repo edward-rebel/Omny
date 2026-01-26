@@ -172,7 +172,7 @@ Return a JSON object matching this exact structure:
         <header className="bg-white border-b border-slate-200 px-8 py-6">
           <div>
             <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
-            <p className="text-slate-600 mt-1">Configure your Jump Brain application settings</p>
+            <p className="text-slate-600 mt-1">Configure your Omny application settings</p>
           </div>
         </header>
         
@@ -373,7 +373,7 @@ Return a JSON object matching this exact structure:
                   <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
                     <h3 className="text-sm font-medium text-slate-900 mb-2">Logout</h3>
                     <p className="text-sm text-slate-600 mb-3">
-                      Sign out of your Jump Brain account. You'll need to log in again to access your meetings and data.
+                      Sign out of your Omny account. You'll need to log in again to access your meetings and data.
                     </p>
                     <Button 
                       variant="destructive" 
@@ -393,7 +393,7 @@ Return a JSON object matching this exact structure:
               <CardHeader>
                 <CardTitle>Application Information</CardTitle>
                 <CardDescription>
-                  Details about your Jump Brain installation
+                  Details about your Omny installation
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">

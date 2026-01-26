@@ -10,7 +10,7 @@ export default function Landing() {
         <div className="text-center space-y-8">
           <div className="space-y-4">
             <h1 className="text-5xl font-bold text-slate-900 dark:text-slate-100">
-              Jump Brain
+              Omny
             </h1>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
               Transform your meeting transcripts into structured insights and action items with AI-powered analysis.
@@ -81,7 +81,7 @@ export default function Landing() {
         <div className="mt-20 text-center space-y-12">
           <div className="space-y-4">
             <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-              Why Choose Jump Brain?
+              Why Choose Omny?
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
               Turn every meeting into actionable insights and track your meeting effectiveness over time.

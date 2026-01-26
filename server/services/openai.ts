@@ -57,7 +57,7 @@ export async function analyzeMeetingTranscript(
 
     const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.2",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Analyze this meeting transcript:\n\n${transcript}` }

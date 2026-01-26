@@ -1,8 +1,8 @@
-# Jump Brain - AI Meeting Memory & Analysis
+# Omny - AI Meeting Memory & Analysis
 
 ## Overview
 
-Jump Brain is a web application that transforms raw meeting transcripts into structured insights, action items, and meeting analysis. The system uses AI to analyze meetings and provide effectiveness tracking through a comprehensive dashboard interface.
+Omny is a web application that transforms raw meeting transcripts into structured insights, action items, and meeting analysis. The system uses AI to analyze meetings and provide effectiveness tracking through a comprehensive dashboard interface.
 
 ## User Preferences
 
@@ -137,6 +137,6 @@ Preferred communication style: Simple, everyday language.
   - Updated database schema to support new summary fields and project relationships
 - **Multi-user Authentication**: Comprehensive Replit Auth integration with OpenID Connect
 - **Database Migration**: User-scoped data with PostgreSQL storage and session management
-- **Rebranding**: Changed application name from "Twin Brain" to "Jump Brain"
+- **Rebranding**: Changed application name to "Omny"
 
 The application architecture emphasizes type safety, real-time updates, and clean separation between AI processing, data persistence, and user interface components.

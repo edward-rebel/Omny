@@ -22,7 +22,7 @@ export function Sidebar() {
             <Brain className="w-6 h-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-slate-900">Jump Brain</h1>
+            <h1 className="text-lg font-semibold text-slate-900">Omny</h1>
             <p className="text-sm text-slate-600">AI Meeting Assistant</p>
           </div>
         </div>
