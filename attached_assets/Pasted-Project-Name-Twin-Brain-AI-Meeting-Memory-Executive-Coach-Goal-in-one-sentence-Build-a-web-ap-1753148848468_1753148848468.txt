@@ -1,0 +1,140 @@
+Project Name: Twin Brain – AI Meeting Memory & Executive Coach
+
+Goal in one sentence: Build a web app where I paste a transcript, click “Analyze,” and immediately receive structured meeting notes, action-item trackers, project files, and a meta-coach dashboard that I can refresh on demand.
+
+⸻
+
+	1.	Core User Stories (MVP)
+
+	1.	Paste raw transcript text
+	•	Single textarea plus “Analyze” button
+	•	Accept up to ~100 kB of text
+	2.	See Meeting Summary
+	•	Output includes: title, date, participants, Key Takeaways, My Todos, Others’ Todos, Follow-Ups, Project Updates, Effectiveness Score (1–10), “What went well,” and “Areas to improve”
+	3.	Persist data
+	•	Store each transcript summary in SQLite
+	•	Maintain one row per project with JSON history; auto-create or update when a project is mentioned
+	4.	View Dashboard
+	•	Home page cards: My Top Todos, Others’ Todos, Latest Meeting, Project List, Meta-Coach Insights
+	5.	Trigger Daily Update
+	•	“Sync Insights” button re-runs aggregation and refreshes dashboard
+	6.	Open Project Detail
+	•	Clicking a project shows running summary, decision log, open tasks, and timeline of related meetings
+
+⸻
+
+	2.	LLM Processing Pipeline
+
+	•	System prompt: “You are an AI meeting assistant for Edward (CTO). Parse the raw transcript below…”
+	•	Function-call schema (JSON returned by GPT):
+{
+“meeting”: {
+“title”: “string”,
+“date”: “YYYY-MM-DD”,
+“participants”: [“string”]
+},
+“key_takeaways”: [“string”],
+“action_items”: {
+“edward”: [{“task”: “string”, “due”: “optional date”}],
+“others”:  [{“task”: “string”, “owner”: “string”, “due”: “optional date”}]
+},
+“follow_ups”: [“string”],
+“projects”: [
+{
+“name”: “string”,
+“update”: “string”,
+“status”: “open|hold|done”
+}
+],
+“effectiveness”: {
+“score”: 1-10,
+“went_well”: [“string”],
+“improve”:  [“string”]
+}
+}
+	•	Effectiveness rubric: clarity of purpose, decisions made, action orientation, Edward’s leadership, time efficiency, follow-up readiness, net positive impact.
+	•	Meta-Coach aggregation: rolling averages, strengths, opportunities, pitfalls, meeting stats.
+
+⸻
+
+	3.	Tech Stack
+
+Frontend: React + Vite + TypeScript
+Styling: TailwindCSS
+State: React Query
+Backend: FastAPI (Python 3.12)
+Database: SQLite using SQLModel
+LLM: OpenAI GPT-4o (API key via .env)
+Auth: none (single-user local)
+
+⸻
+
+	4.	File / Folder Blueprint
+
+/
+backend/
+main.py               (FastAPI app & routes)
+models.py             (SQLModel: Meeting, Project, Task)
+schemas.py            (Pydantic response models)
+services/
+openai_client.py    (call_gpt with function-call)
+analytics.py        (meta-coach aggregation)
+frontend/
+src/
+App.tsx
+pages/
+Dashboard.tsx
+Project.tsx
+NewMeeting.tsx
+components/
+TranscriptInput.tsx
+SummaryCard.tsx
+TodoList.tsx
+EffectivenessBadge.tsx
+index.html
+.env.example            (OPENAI_API_KEY=)
+README.md               (run instructions)
+requirements.txt
+
+⸻
+
+	5.	API Endpoints
+
+POST /analyze        Body: { “raw_transcript”: “…” } → parses with GPT, stores, returns JSON
+GET  /dashboard      Returns dashboard object including meta-coach data
+POST /sync           Triggers aggregation of meta-coach stats
+GET  /project/{id}   Returns full project history and open tasks
+
+⸻
+
+	6.	UI Flow
+
+	•	Navbar: Dashboard | New Meeting | Projects
+	•	New Meeting page: large textarea, “Analyze” button, results panel appears below
+	•	Dashboard page:
+Left column – My Top Todos, Others’ Todos
+Right column – Latest Meeting Summary (with Effectiveness badge), Project List, Meta-Coach Insights, “Sync Insights” button
+	•	Project Detail page: timeline of updates plus open tasks list
+
+⸻
+
+	7.	Non-Functional Requirements
+
+	•	Performance: return summary in under 8 s for <= 10k words
+	•	Reliability: graceful handling of LLM timeouts or failures
+	•	Security: API key stored server-side via .env, never exposed to client
+	•	Logging: basic request/error logs to console
+	•	Tests: unit tests for openai_client and analytics
+
+⸻
+
+	8.	Stretch Goals (hold for later)
+
+	•	Slack slash-command for transcript intake
+	•	Natural-language search across meetings
+	•	Daily email digest at 07:00 local time
+	•	Sentiment trend graph across meetings
+
+⸻
+
+Deliverable: A runnable Replit project that lets me paste a transcript, click “Analyze,” and instantly see structured results plus a living dashboard—only setup required is pasting my OpenAI key and hitting Run.

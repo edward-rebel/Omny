@@ -1,0 +1,138 @@
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { Sidebar } from "@/components/Sidebar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ChevronRight } from "lucide-react";
+import type { ProjectWithTasks } from "@/lib/types";
+
+export default function Projects() {
+  const { data: projects, isLoading, error } = useQuery<ProjectWithTasks[]>({
+    queryKey: ["/api/projects"],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex">
+        <Sidebar />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading projects...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex">
+        <Sidebar />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-600 mb-2">Failed to load projects</p>
+            <p className="text-slate-600 text-sm">
+              {error instanceof Error ? error.message : "An error occurred"}
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "open": return "bg-green-100 text-green-800";
+      case "hold": return "bg-amber-100 text-amber-800";
+      case "done": return "bg-gray-100 text-gray-800";
+      default: return "bg-blue-100 text-blue-800";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "open": return "On Track";
+      case "hold": return "Blocked";
+      case "done": return "Completed";
+      default: return status;
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex bg-slate-50">
+      <Sidebar />
+      
+      <main className="flex-1 overflow-hidden">
+        <header className="bg-white border-b border-slate-200 px-8 py-6">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">Projects</h1>
+            <p className="text-slate-600 mt-1">Track progress and decisions across all your active projects</p>
+          </div>
+        </header>
+        
+        <div className="p-8 h-full overflow-y-auto">
+          <div className="max-w-6xl mx-auto">
+            {projects && projects.length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {projects.map((project) => (
+                  <div key={project.id} className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col h-96">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-semibold text-slate-900">{project.name}</h3>
+                      <Badge className={`${getStatusColor(project.status)} text-sm font-medium`}>
+                        {getStatusLabel(project.status)}
+                      </Badge>
+                    </div>
+                    
+                    <div className="text-sm mb-3">
+                      <span className="text-slate-500">Last Update:</span>
+                      <span className="text-slate-900 font-medium ml-1">
+                        {new Date(project.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center py-2 mb-4 border-t border-b border-slate-100">
+                      <div className="text-sm">
+                        <span className="text-slate-500">Updates:</span>
+                        <span className="text-slate-900 font-medium ml-1">{project.updates.length}</span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-slate-500">Open Tasks:</span>
+                        <span className="text-slate-900 font-medium ml-1">{project.openTasksCount}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-grow mb-4">
+                      {project.context && (
+                        <p className="text-sm text-slate-600 line-clamp-4 leading-relaxed">{project.context}</p>
+                      )}
+                    </div>
+                    
+                    <div className="mt-auto">
+                      <Link href={`/project/${project.id}`}>
+                        <Button variant="outline" className="w-full flex items-center justify-center gap-2">
+                          View Details
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-slate-600 mb-4">No projects found.</p>
+                <p className="text-sm text-slate-500 mb-6">
+                  Analyze some meetings to automatically track project updates.
+                </p>
+                <Link href="/new-meeting">
+                  <Button>Analyze Your First Meeting</Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
