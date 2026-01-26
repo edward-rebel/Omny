@@ -1,18 +1,64 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { useState } from "react";
 import { Sidebar, MobileHeader } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Users, TrendingUp, MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { CalendarIcon, Users, TrendingUp, MessageSquare, Trash2 } from "lucide-react";
 import { Meeting } from "@shared/schema";
 
 export default function Meetings() {
+  const queryClient = useQueryClient();
+  const [meetingToDelete, setMeetingToDelete] = useState<Meeting | null>(null);
+
   const { data: meetings = [], isLoading } = useQuery<Meeting[]>({
     queryKey: ["/api/meetings"],
     staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (meetingId: number) => {
+      const response = await fetch(`/api/meetings/${meetingId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to delete meeting");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setMeetingToDelete(null);
+    },
+  });
+
+  const handleDeleteClick = (e: React.MouseEvent, meeting: Meeting) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMeetingToDelete(meeting);
+  };
+
+  const confirmDelete = () => {
+    if (meetingToDelete) {
+      deleteMutation.mutate(meetingToDelete.id);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -95,13 +141,23 @@ export default function Meetings() {
                             </div>
                           </div>
                         </div>
-                        <Badge
-                          variant="outline"
-                          className={`${getEffectivenessColor(meeting.effectivenessScore || 0)} flex items-center gap-1 shrink-0`}
-                        >
-                          <TrendingUp className="w-3 h-3" />
-                          {meeting.effectivenessScore || 0}/10
-                        </Badge>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge
+                            variant="outline"
+                            className={`${getEffectivenessColor(meeting.effectivenessScore || 0)} flex items-center gap-1`}
+                          >
+                            <TrendingUp className="w-3 h-3" />
+                            {meeting.effectivenessScore || 0}/10
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={(e) => handleDeleteClick(e, meeting)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent className="p-4 md:p-6 pt-0">
@@ -143,6 +199,26 @@ export default function Meetings() {
           )}
         </div>
       </main>
+
+      <AlertDialog open={!!meetingToDelete} onOpenChange={(open) => !open && setMeetingToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Meeting</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{meetingToDelete?.title}"? This will also delete all associated tasks. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
