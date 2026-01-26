@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar, MobileHeader } from "@/components/Sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
@@ -13,8 +13,9 @@ export default function Projects() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex">
+      <div className="min-h-screen flex flex-col md:flex-row">
         <Sidebar />
+        <MobileHeader title="Projects" />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
@@ -27,8 +28,9 @@ export default function Projects() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex">
+      <div className="min-h-screen flex flex-col md:flex-row">
         <Sidebar />
+        <MobileHeader title="Projects" />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-red-600 mb-2">Failed to load projects</p>
@@ -60,57 +62,58 @@ export default function Projects() {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
       <Sidebar />
-      
+      <MobileHeader title="Projects" subtitle="Track your projects" />
+
       <main className="flex-1 overflow-hidden">
-        <header className="bg-white border-b border-slate-200 px-8 py-6">
+        <header className="hidden md:block bg-white border-b border-slate-200 px-4 md:px-8 py-4 md:py-6">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Projects</h1>
-            <p className="text-slate-600 mt-1">Track progress and decisions across all your active projects</p>
+            <h1 className="text-xl md:text-2xl font-semibold text-slate-900">Projects</h1>
+            <p className="text-slate-600 mt-1 text-sm md:text-base">Track progress and decisions across all your active projects</p>
           </div>
         </header>
-        
-        <div className="p-8 h-full overflow-y-auto">
+
+        <div className="p-4 md:p-8 h-full overflow-y-auto">
           <div className="max-w-6xl mx-auto">
             {projects && projects.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
                 {projects.map((project) => (
-                  <div key={project.id} className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col h-96">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-lg font-semibold text-slate-900">{project.name}</h3>
-                      <Badge className={`${getStatusColor(project.status)} text-sm font-medium`}>
+                  <div key={project.id} className="bg-white rounded-xl border border-slate-200 p-4 md:p-6 flex flex-col min-h-[280px] md:h-96">
+                    <div className="flex items-start justify-between mb-3 gap-2">
+                      <h3 className="text-base md:text-lg font-semibold text-slate-900 line-clamp-2">{project.name}</h3>
+                      <Badge className={`${getStatusColor(project.status)} text-xs md:text-sm font-medium shrink-0`}>
                         {getStatusLabel(project.status)}
                       </Badge>
                     </div>
-                    
-                    <div className="text-sm mb-3">
+
+                    <div className="text-xs md:text-sm mb-3">
                       <span className="text-slate-500">Last Update:</span>
                       <span className="text-slate-900 font-medium ml-1">
                         {new Date(project.createdAt).toLocaleDateString()}
                       </span>
                     </div>
-                    
-                    <div className="flex justify-between items-center py-2 mb-4 border-t border-b border-slate-100">
-                      <div className="text-sm">
+
+                    <div className="flex justify-between items-center py-2 mb-3 md:mb-4 border-t border-b border-slate-100">
+                      <div className="text-xs md:text-sm">
                         <span className="text-slate-500">Updates:</span>
                         <span className="text-slate-900 font-medium ml-1">{project.updates.length}</span>
                       </div>
-                      <div className="text-sm">
+                      <div className="text-xs md:text-sm">
                         <span className="text-slate-500">Open Tasks:</span>
                         <span className="text-slate-900 font-medium ml-1">{project.openTasksCount}</span>
                       </div>
                     </div>
-                    
-                    <div className="flex-grow mb-4">
+
+                    <div className="flex-grow mb-3 md:mb-4">
                       {project.context && (
-                        <p className="text-sm text-slate-600 line-clamp-4 leading-relaxed">{project.context}</p>
+                        <p className="text-xs md:text-sm text-slate-600 line-clamp-3 md:line-clamp-4 leading-relaxed">{project.context}</p>
                       )}
                     </div>
-                    
+
                     <div className="mt-auto">
                       <Link href={`/project/${project.id}`}>
-                        <Button variant="outline" className="w-full flex items-center justify-center gap-2">
+                        <Button variant="outline" className="w-full flex items-center justify-center gap-2 text-sm">
                           View Details
                           <ChevronRight className="w-4 h-4" />
                         </Button>
@@ -120,9 +123,9 @@ export default function Projects() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <p className="text-slate-600 mb-4">No projects found.</p>
-                <p className="text-sm text-slate-500 mb-6">
+              <div className="text-center py-8 md:py-12">
+                <p className="text-slate-600 mb-4 text-sm md:text-base">No projects found.</p>
+                <p className="text-xs md:text-sm text-slate-500 mb-6">
                   Analyze some meetings to automatically track project updates.
                 </p>
                 <Link href="/new-meeting">
