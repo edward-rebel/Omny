@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sidebar, MobileHeader } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, User, CheckCircle2, Clock, Edit3, Check, X, Trash2, UserCheck } from "lucide-react";
+import { CalendarIcon, User, CheckCircle2, Clock, Edit3, Check, X, Trash2, UserCheck, Search } from "lucide-react";
 import { Task } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +19,9 @@ export default function Todos() {
   const [editingTask, setEditingTask] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
   const [reassigningTask, setReassigningTask] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { data: allTasks = [], isLoading } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
@@ -48,18 +51,52 @@ export default function Todos() {
     },
   });
 
-  const myTasks = allTasks.filter(task => {
+  const filterTasks = (tasks: Task[]) => {
+    return tasks.filter((task) => {
+      // Search filter
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = searchQuery === "" ||
+        task.task.toLowerCase().includes(searchLower) ||
+        task.owner.toLowerCase().includes(searchLower);
+
+      // Priority filter
+      const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+
+      // Status filter
+      let matchesStatus = true;
+      if (statusFilter === "completed") {
+        matchesStatus = task.completed;
+      } else if (statusFilter === "active") {
+        matchesStatus = !task.completed;
+      }
+
+      return matchesSearch && matchesPriority && matchesStatus;
+    });
+  };
+
+  const myTasksBase = allTasks.filter(task => {
     if (!user) return false;
     const currentUserName = (user.displayName || user.firstName || user.email?.split('@')[0] || 'user').toLowerCase();
     const owner = task.owner.toLowerCase();
     return owner === currentUserName || owner === currentUserName.split(' ')[0];
   });
-  const otherTasks = allTasks.filter(task => {
+  const otherTasksBase = allTasks.filter(task => {
     if (!user) return true;
     const currentUserName = (user.displayName || user.firstName || user.email?.split('@')[0] || 'user').toLowerCase();
     const owner = task.owner.toLowerCase();
     return owner !== currentUserName && owner !== currentUserName.split(' ')[0];
   });
+
+  const myTasks = useMemo(() => filterTasks(myTasksBase), [myTasksBase, searchQuery, priorityFilter, statusFilter]);
+  const otherTasks = useMemo(() => filterTasks(otherTasksBase), [otherTasksBase, searchQuery, priorityFilter, statusFilter]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setPriorityFilter("all");
+    setStatusFilter("all");
+  };
+
+  const hasActiveFilters = searchQuery !== "" || priorityFilter !== "all" || statusFilter !== "all";
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -281,6 +318,64 @@ export default function Todos() {
             <p className="text-slate-600 mt-1 text-sm md:text-base">Track and manage all your action items from meetings</p>
           </div>
         </header>
+
+        {/* Search and Filter Bar */}
+        <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-3 md:py-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Search tasks by description or owner..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priority</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="text-slate-500">
+                  <X className="w-4 h-4 mr-1" />
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+          {hasActiveFilters && (
+            <p className="text-xs text-slate-500 mt-2">
+              Showing {myTasks.length + otherTasks.length} of {allTasks.length} tasks
+            </p>
+          )}
+        </div>
 
         <div className="p-4 md:p-8 h-full overflow-y-auto">
           {isLoading ? (

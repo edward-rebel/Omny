@@ -15,8 +15,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Calendar, Users, TrendingUp, Trash2 } from "lucide-react";
+import { ArrowLeft, Calendar, Users, TrendingUp, Trash2, Download } from "lucide-react";
 import { Meeting, Task, Project } from "@shared/schema";
+import { exportMeetingToPDF } from "@/lib/pdfExport";
 
 export default function MeetingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -46,6 +47,16 @@ export default function MeetingDetail() {
 
   const confirmDelete = () => {
     deleteMutation.mutate(meetingId);
+  };
+
+  const handleExportPDF = () => {
+    if (meeting) {
+      exportMeetingToPDF({
+        meeting,
+        tasks: meetingTasks,
+        projects: meetingProjects,
+      });
+    }
   };
 
   const { data: meeting, isLoading, error } = useQuery<Meeting>({
@@ -220,15 +231,26 @@ export default function MeetingDetail() {
                 </div>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-              onClick={() => setShowDeleteDialog(true)}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                onClick={handleExportPDF}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export PDF
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            </div>
           </div>
         </header>
 
@@ -240,14 +262,24 @@ export default function MeetingDetail() {
               Back to Meetings
             </Button>
           </Link>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-red-600 hover:bg-red-50"
-            onClick={() => setShowDeleteDialog(true)}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-blue-600 hover:bg-blue-50"
+              onClick={handleExportPDF}
+            >
+              <Download className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-red-600 hover:bg-red-50"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="p-4 md:p-8 h-full overflow-y-auto">
