@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Sidebar, MobileHeader } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,12 +17,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CalendarIcon, Users, TrendingUp, MessageSquare, Trash2 } from "lucide-react";
+import { CalendarIcon, Users, TrendingUp, MessageSquare, Trash2, Search, X } from "lucide-react";
 import { Meeting } from "@shared/schema";
 
 export default function Meetings() {
   const queryClient = useQueryClient();
   const [meetingToDelete, setMeetingToDelete] = useState<Meeting | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [effectivenessFilter, setEffectivenessFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("all");
 
   const { data: meetings = [], isLoading } = useQuery<Meeting[]>({
     queryKey: ["/api/meetings"],
@@ -75,6 +80,54 @@ export default function Meetings() {
     return "bg-red-100 text-red-800 border-red-200";
   };
 
+  const filteredMeetings = useMemo(() => {
+    return meetings.filter((meeting) => {
+      // Search filter
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = searchQuery === "" ||
+        meeting.title.toLowerCase().includes(searchLower) ||
+        meeting.summary?.toLowerCase().includes(searchLower) ||
+        meeting.participants?.some(p => p.toLowerCase().includes(searchLower)) ||
+        meeting.keyTakeaways?.some(k => k.toLowerCase().includes(searchLower));
+
+      // Effectiveness filter
+      let matchesEffectiveness = true;
+      const score = meeting.effectivenessScore || 0;
+      if (effectivenessFilter === "high") {
+        matchesEffectiveness = score >= 8;
+      } else if (effectivenessFilter === "medium") {
+        matchesEffectiveness = score >= 6 && score < 8;
+      } else if (effectivenessFilter === "low") {
+        matchesEffectiveness = score < 6;
+      }
+
+      // Date filter
+      let matchesDate = true;
+      const meetingDate = new Date(meeting.date);
+      const now = new Date();
+      if (dateFilter === "week") {
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        matchesDate = meetingDate >= weekAgo;
+      } else if (dateFilter === "month") {
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        matchesDate = meetingDate >= monthAgo;
+      } else if (dateFilter === "quarter") {
+        const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        matchesDate = meetingDate >= quarterAgo;
+      }
+
+      return matchesSearch && matchesEffectiveness && matchesDate;
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [meetings, searchQuery, effectivenessFilter, dateFilter]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setEffectivenessFilter("all");
+    setDateFilter("all");
+  };
+
+  const hasActiveFilters = searchQuery !== "" || effectivenessFilter !== "all" || dateFilter !== "all";
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
       <Sidebar />
@@ -87,6 +140,64 @@ export default function Meetings() {
             <p className="text-slate-600 mt-1 text-sm md:text-base">Browse and review your analyzed meeting transcripts</p>
           </div>
         </header>
+
+        {/* Search and Filter Bar */}
+        <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-3 md:py-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Search meetings by title, summary, participants..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Select value={effectivenessFilter} onValueChange={setEffectivenessFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Effectiveness" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Scores</SelectItem>
+                  <SelectItem value="high">High (8-10)</SelectItem>
+                  <SelectItem value="medium">Medium (6-7)</SelectItem>
+                  <SelectItem value="low">Low (1-5)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue placeholder="Date Range" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="week">Past Week</SelectItem>
+                  <SelectItem value="month">Past Month</SelectItem>
+                  <SelectItem value="quarter">Past 3 Months</SelectItem>
+                </SelectContent>
+              </Select>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="text-slate-500">
+                  <X className="w-4 h-4 mr-1" />
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+          {hasActiveFilters && (
+            <p className="text-xs text-slate-500 mt-2">
+              Showing {filteredMeetings.length} of {meetings.length} meetings
+            </p>
+          )}
+        </div>
 
         <div className="p-4 md:p-8 h-full overflow-y-auto">
           {isLoading ? (
@@ -117,11 +228,18 @@ export default function Meetings() {
                 </button>
               </Link>
             </div>
+          ) : filteredMeetings.length === 0 ? (
+            <div className="text-center py-8 md:py-12">
+              <Search className="w-12 h-12 md:w-16 md:h-16 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-base md:text-lg font-medium text-slate-900 mb-2">No matching meetings</h3>
+              <p className="text-slate-600 mb-6 text-sm md:text-base">Try adjusting your search or filters</p>
+              <Button variant="outline" onClick={clearFilters}>
+                Clear Filters
+              </Button>
+            </div>
           ) : (
             <div className="space-y-3 md:space-y-4">
-              {meetings
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                .map((meeting) => (
+              {filteredMeetings.map((meeting) => (
                 <Link key={meeting.id} href={`/meeting/${meeting.id}`}>
                   <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-blue-500">
                     <CardHeader className="p-4 md:p-6 pb-2 md:pb-3">

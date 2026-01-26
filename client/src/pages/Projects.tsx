@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Sidebar, MobileHeader } from "@/components/Sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,16 +16,41 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChevronRight, Trash2 } from "lucide-react";
+import { ChevronRight, Trash2, Search, X } from "lucide-react";
 import type { ProjectWithTasks } from "@/lib/types";
 
 export default function Projects() {
   const queryClient = useQueryClient();
   const [projectToDelete, setProjectToDelete] = useState<ProjectWithTasks | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { data: projects, isLoading, error } = useQuery<ProjectWithTasks[]>({
     queryKey: ["/api/projects"],
   });
+
+  const filteredProjects = useMemo(() => {
+    if (!projects) return [];
+    return projects.filter((project) => {
+      // Search filter
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = searchQuery === "" ||
+        project.name.toLowerCase().includes(searchLower) ||
+        project.context?.toLowerCase().includes(searchLower);
+
+      // Status filter
+      const matchesStatus = statusFilter === "all" || project.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [projects, searchQuery, statusFilter]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+  };
+
+  const hasActiveFilters = searchQuery !== "" || statusFilter !== "all";
 
   const deleteMutation = useMutation({
     mutationFn: async (projectId: number) => {
@@ -118,11 +145,59 @@ export default function Projects() {
           </div>
         </header>
 
+        {/* Search and Filter Bar */}
+        <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-3 md:py-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Search projects by name or description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="open">On Track</SelectItem>
+                  <SelectItem value="hold">Blocked</SelectItem>
+                  <SelectItem value="done">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="text-slate-500">
+                  <X className="w-4 h-4 mr-1" />
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+          {hasActiveFilters && projects && (
+            <p className="text-xs text-slate-500 mt-2">
+              Showing {filteredProjects.length} of {projects.length} projects
+            </p>
+          )}
+        </div>
+
         <div className="p-4 md:p-8 h-full overflow-y-auto">
           <div className="max-w-6xl mx-auto">
             {projects && projects.length > 0 ? (
+              filteredProjects.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
-                {projects.map((project) => (
+                {filteredProjects.map((project) => (
                   <div key={project.id} className="bg-white rounded-xl border border-slate-200 p-4 md:p-6 flex flex-col min-h-[280px] md:h-96">
                     <div className="flex items-start justify-between mb-3 gap-2">
                       <h3 className="text-base md:text-lg font-semibold text-slate-900 line-clamp-2">{project.name}</h3>
@@ -177,6 +252,15 @@ export default function Projects() {
                 ))}
               </div>
             ) : (
+              <div className="text-center py-8 md:py-12">
+                <Search className="w-12 h-12 md:w-16 md:h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-base md:text-lg font-medium text-slate-900 mb-2">No matching projects</h3>
+                <p className="text-slate-600 mb-6 text-sm md:text-base">Try adjusting your search or filters</p>
+                <Button variant="outline" onClick={clearFilters}>
+                  Clear Filters
+                </Button>
+              </div>
+            )) : (
               <div className="text-center py-8 md:py-12">
                 <p className="text-slate-600 mb-4 text-sm md:text-base">No projects found.</p>
                 <p className="text-xs md:text-sm text-slate-500 mb-6">
