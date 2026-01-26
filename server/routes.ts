@@ -9,6 +9,14 @@ import { insertMeetingSchema, insertTaskSchema, insertProjectSchema, insertSyste
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import OpenAI from 'openai';
+import { z } from "zod";
+
+// Schema for webhook request validation
+const webhookMeetingSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  created_time: z.string().min(1, "Created time is required"),
+  transcript: z.string().min(1, "Transcript is required"),
+});
 
 // Store for runtime API key updates
 let runtimeApiKey: string | null = null;
@@ -188,6 +196,230 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Analysis error:", error);
       const message = error instanceof Error ? error.message : "Failed to analyze meeting";
       res.status(500).json({ message });
+    }
+  });
+
+  // Webhook endpoint for Zapier integration
+  app.post("/api/webhook/meeting", async (req: any, res) => {
+    try {
+      // Validate API key
+      const apiKeyHeader = req.headers["x-api-key"];
+      if (!apiKeyHeader || typeof apiKeyHeader !== "string") {
+        return res.status(401).json({ message: "Missing X-API-Key header" });
+      }
+
+      const apiKey = await storage.validateApiKey(apiKeyHeader);
+      if (!apiKey) {
+        return res.status(401).json({ message: "Invalid API key" });
+      }
+
+      // Update last used timestamp
+      await storage.updateApiKeyLastUsed(apiKey.id);
+
+      // Validate request body
+      const parseResult = webhookMeetingSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          message: "Invalid request body",
+          errors: parseResult.error.errors,
+        });
+      }
+
+      const { title, created_time, transcript } = parseResult.data;
+
+      // Get current user info for analysis
+      const userId = LOCAL_USER_ID;
+      const currentUser = await storage.getUser(userId);
+      const userInfo = {
+        displayName: currentUser?.displayName || LOCAL_USER_INFO.displayName,
+        firstName: LOCAL_USER_INFO.firstName,
+        email: LOCAL_USER_INFO.email,
+      };
+
+      // Analyze with OpenAI using user-specific prompt
+      const analysis = await analyzeMeetingTranscript(transcript, userInfo);
+
+      // Parse the created_time to get a date
+      const meetingDate = new Date(created_time).toISOString().split("T")[0];
+
+      // Store meeting with source: "zapier"
+      const meeting = await storage.createMeeting({
+        userId,
+        title: title || analysis.meeting.title,
+        date: meetingDate || analysis.meeting.date,
+        participants: analysis.meeting.participants,
+        rawTranscript: transcript,
+        summary: analysis.summary,
+        keyTakeaways: analysis.key_takeaways,
+        topicsDiscussed: analysis.topics_discussed || [],
+        followUps: analysis.follow_ups,
+        effectivenessScore: analysis.effectiveness.score,
+        wentWell: analysis.effectiveness.went_well,
+        areasToImprove: analysis.effectiveness.improve,
+        source: "zapier",
+      });
+
+      // Store action items as tasks
+      const createdTasks = [];
+      const currentUserData = await storage.getUser(userId);
+      const userName = currentUserData?.displayName || LOCAL_USER_INFO.displayName;
+
+      // User's tasks
+      for (const item of analysis.action_items.user) {
+        const task = await storage.createTask({
+          userId,
+          meetingId: meeting.id,
+          projectId: null,
+          task: item.task,
+          owner: userName,
+          due: item.due || null,
+          priority: item.priority || "medium",
+          completed: false,
+        });
+        createdTasks.push(task);
+      }
+
+      // Others' tasks
+      for (const item of analysis.action_items.others) {
+        const task = await storage.createTask({
+          userId,
+          meetingId: meeting.id,
+          projectId: null,
+          task: item.task,
+          owner: item.owner,
+          due: item.due || null,
+          priority: item.priority || "medium",
+          completed: false,
+        });
+        createdTasks.push(task);
+      }
+
+      // Process projects
+      let createdProjects: Project[] = [];
+      if (analysis.projects && analysis.projects.length > 0) {
+        try {
+          const projectAnalysis = await analyzeProjectRelationships({
+            newProjects: analysis.projects,
+            meetingId: meeting.id,
+            meetingTitle: title || analysis.meeting.title,
+            meetingDate: meetingDate || analysis.meeting.date,
+            userId,
+          });
+
+          createdProjects = await processProjectAnalysis(
+            projectAnalysis,
+            analysis.projects,
+            meeting.id,
+            meetingDate || analysis.meeting.date,
+            userId
+          );
+        } catch (error) {
+          console.error("Project analysis failed in webhook:", error);
+          // Fallback to simple creation
+          for (const projectData of analysis.projects) {
+            let project = await storage.getProjectByName(projectData.name, userId);
+            if (!project) {
+              project = await storage.createProject({
+                userId,
+                name: projectData.name,
+                status: projectData.status,
+                lastUpdate: projectData.update,
+                context: projectData.context,
+                updates: [{
+                  meetingId: meeting.id,
+                  update: projectData.update,
+                  date: meetingDate || analysis.meeting.date,
+                }],
+              });
+            }
+            if (project) {
+              createdProjects.push(project);
+            }
+          }
+        }
+      }
+
+      // Generate narrative insights
+      try {
+        await updateInsightsWithNarrative(userId, meeting, userInfo);
+      } catch (error) {
+        console.error("Failed to generate narrative insights in webhook:", error);
+      }
+
+      console.log(`✓ Webhook: Created meeting ${meeting.id} with ${createdTasks.length} tasks and ${createdProjects.length} projects`);
+
+      res.json({
+        success: true,
+        meeting_id: meeting.id,
+        title: meeting.title,
+        tasks_created: createdTasks.length,
+        projects_created: createdProjects.length,
+      });
+    } catch (error) {
+      console.error("Webhook error:", error);
+      const message = error instanceof Error ? error.message : "Failed to process webhook";
+      res.status(500).json({ success: false, message });
+    }
+  });
+
+  // API Key management endpoints
+  app.post("/api/settings/api-keys", async (req: any, res) => {
+    try {
+      const { name } = req.body;
+      if (!name || typeof name !== "string" || name.trim().length === 0) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+
+      const { apiKey, plainKey } = await storage.createApiKey(name.trim());
+
+      res.json({
+        id: apiKey.id,
+        name: apiKey.name,
+        key: plainKey, // Only returned once on creation
+        createdAt: apiKey.createdAt,
+      });
+    } catch (error) {
+      console.error("Create API key error:", error);
+      res.status(500).json({ message: "Failed to create API key" });
+    }
+  });
+
+  app.get("/api/settings/api-keys", async (req: any, res) => {
+    try {
+      const keys = await storage.getApiKeys();
+
+      // Mask the keys for security - only show first 8 characters
+      const maskedKeys = keys.map((key) => ({
+        id: key.id,
+        name: key.name,
+        keyPreview: key.key.substring(0, 12) + "..." + key.key.substring(key.key.length - 4),
+        lastUsedAt: key.lastUsedAt,
+        createdAt: key.createdAt,
+      }));
+
+      res.json(maskedKeys);
+    } catch (error) {
+      console.error("Get API keys error:", error);
+      res.status(500).json({ message: "Failed to get API keys" });
+    }
+  });
+
+  app.delete("/api/settings/api-keys/:id", async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid API key ID" });
+      }
+
+      const success = await storage.deleteApiKey(id);
+      if (!success) {
+        return res.status(404).json({ message: "API key not found" });
+      }
+
+      res.json({ message: "API key revoked successfully" });
+    } catch (error) {
+      console.error("Delete API key error:", error);
+      res.status(500).json({ message: "Failed to revoke API key" });
     }
   });
 

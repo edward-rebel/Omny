@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CalendarIcon, Users, TrendingUp, MessageSquare, Trash2, Search, X } from "lucide-react";
+import { CalendarIcon, Users, TrendingUp, MessageSquare, Trash2, Search, X, Zap } from "lucide-react";
 import { Meeting } from "@shared/schema";
 
 export default function Meetings() {
@@ -260,6 +260,12 @@ export default function Meetings() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
+                          {(meeting as any).source === 'zapier' && (
+                            <Badge className="bg-purple-100 text-purple-700 border-purple-200 flex items-center gap-1">
+                              <Zap className="w-3 h-3" />
+                              Auto
+                            </Badge>
+                          )}
                           <Badge
                             variant="outline"
                             className={`${getEffectivenessColor(meeting.effectivenessScore || 0)} flex items-center gap-1`}

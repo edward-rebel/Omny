@@ -15,7 +15,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Calendar, Users, TrendingUp, Trash2, Download } from "lucide-react";
+import { ArrowLeft, Calendar, Users, TrendingUp, Trash2, Download, Zap } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Meeting, Task, Project } from "@shared/schema";
 import { exportMeetingToPDF } from "@/lib/pdfExport";
 
@@ -214,7 +215,15 @@ export default function MeetingDetail() {
               </Button>
             </Link>
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl md:text-2xl font-semibold text-slate-900 truncate">{meeting.title}</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl md:text-2xl font-semibold text-slate-900 truncate">{meeting.title}</h1>
+                {(meeting as any).source === 'zapier' && (
+                  <Badge className="bg-purple-100 text-purple-700 border-purple-200 flex items-center gap-1">
+                    <Zap className="w-3 h-3" />
+                    Auto
+                  </Badge>
+                )}
+              </div>
               <div className="flex flex-wrap items-center gap-3 md:gap-6 mt-2 text-xs md:text-sm text-slate-600">
                 <div className="flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4" />

@@ -40,6 +40,7 @@ export const meetings = pgTable("meetings", {
   effectivenessScore: integer("effectiveness_score").notNull(),
   wentWell: jsonb("went_well").$type<string[]>().notNull(),
   areasToImprove: jsonb("areas_to_improve").$type<string[]>().notNull(),
+  source: text("source").notNull().default("manual"), // "manual" | "zapier"
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -94,6 +95,15 @@ export const systemPrompts = pgTable("system_prompts", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const apiKeys = pgTable("api_keys", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 64 }).notNull().unique(),
+  name: text("name").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertMeetingSchema = createInsertSchema(meetings).omit({
   id: true,
   createdAt: true,
@@ -120,6 +130,12 @@ export const insertSystemPromptSchema = createInsertSchema(systemPrompts).omit({
   updatedAt: true,
 });
 
+export const insertApiKeySchema = createInsertSchema(apiKeys).omit({
+  id: true,
+  createdAt: true,
+  lastUsedAt: true,
+});
+
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type Meeting = typeof meetings.$inferSelect;
@@ -132,3 +148,5 @@ export type MetaInsights = typeof metaInsights.$inferSelect;
 export type InsertMetaInsights = z.infer<typeof insertMetaInsightsSchema>;
 export type SystemPrompt = typeof systemPrompts.$inferSelect;
 export type InsertSystemPrompt = z.infer<typeof insertSystemPromptSchema>;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type InsertApiKey = z.infer<typeof insertApiKeySchema>;

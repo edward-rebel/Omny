@@ -89,6 +89,19 @@ CREATE TABLE IF NOT EXISTS system_prompts (
   created_at TIMESTAMP DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
+
+-- Add source column to meetings table (for webhook vs manual)
+ALTER TABLE meetings ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual';
+
+-- API Keys table for webhook authentication
+CREATE TABLE IF NOT EXISTS api_keys (
+  id SERIAL PRIMARY KEY,
+  key VARCHAR(64) NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  last_used_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
 `;
 
 export async function initializeDatabase(): Promise<void> {

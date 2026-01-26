@@ -7,11 +7,26 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { CheckCircle, AlertCircle, Settings2, ChevronDown, LogOut, User, RotateCcw, Save } from "lucide-react";
+import { CheckCircle, AlertCircle, Settings2, ChevronDown, LogOut, User, RotateCcw, Key, Copy, Trash2, Plus, Save } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { SystemPrompt } from "@shared/schema";
+
+interface ApiKeyListItem {
+  id: number;
+  name: string;
+  keyPreview: string;
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+interface NewlyCreatedKey {
+  id: number;
+  name: string;
+  key: string;
+  createdAt: string;
+}
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -20,6 +35,8 @@ export default function Settings() {
   const [expandedPrompts, setExpandedPrompts] = useState<string[]>([]);
   const [displayName, setDisplayName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [newlyCreatedKey, setNewlyCreatedKey] = useState<NewlyCreatedKey | null>(null);
   const { toast } = useToast();
 
   const { data: systemPrompts = [] } = useQuery<SystemPrompt[]>({
@@ -27,6 +44,13 @@ export default function Settings() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Get API keys
+  const { data: apiKeys = [] } = useQuery<ApiKeyListItem[]>({
+    queryKey: ["/api/settings/api-keys"],
+    staleTime: 30 * 1000, // 30 seconds
+  });
+
+  // Initialize display name when user data loads
   useEffect(() => {
     if (user && !displayName) {
       setDisplayName(user.displayName || user.firstName || user.email?.split('@')[0] || 'User');
@@ -119,6 +143,67 @@ Return a JSON object matching this exact structure:
       });
     },
   });
+
+  // Create API key mutation
+  const createApiKeyMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const response = await apiRequest("POST", "/api/settings/api-keys", { name });
+      return response.json() as Promise<NewlyCreatedKey>;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/api-keys"] });
+      setNewlyCreatedKey(data);
+      setNewKeyName("");
+      toast({
+        title: "API Key Created",
+        description: "Copy your key now - it won't be shown again!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to create API key",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete API key mutation
+  const deleteApiKeyMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/settings/api-keys/${id}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/api-keys"] });
+      toast({
+        title: "API Key Revoked",
+        description: "The API key has been revoked and can no longer be used.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to revoke API key",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Copied!",
+        description: "API key copied to clipboard.",
+      });
+    } catch (err) {
+      toast({
+        title: "Copy failed",
+        description: "Please copy the key manually.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const togglePromptExpansion = (name: string) => {
     setExpandedPrompts(prev =>
@@ -243,6 +328,117 @@ Return a JSON object matching this exact structure:
                     Your email address cannot be changed.
                   </p>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* API Keys Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Key className="w-5 h-5" />
+                  API Keys
+                </CardTitle>
+                <CardDescription>
+                  Manage API keys for Zapier webhook integration
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    API keys allow external services like Zapier to send meeting transcripts to Omny for automatic analysis.
+                    Webhook URL: <code className="bg-slate-100 px-1 rounded">{window.location.origin}/api/webhook/meeting</code>
+                  </AlertDescription>
+                </Alert>
+
+                {/* Newly created key display */}
+                {newlyCreatedKey && (
+                  <Alert className="border-green-200 bg-green-50">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <AlertDescription className="text-green-800">
+                      <div className="font-medium mb-2">New API Key Created: {newlyCreatedKey.name}</div>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 bg-white px-2 py-1 rounded border text-sm font-mono break-all">
+                          {newlyCreatedKey.key}
+                        </code>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => copyToClipboard(newlyCreatedKey.key)}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <p className="text-xs mt-2 text-green-700">
+                        Copy this key now - it won't be shown again!
+                      </p>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Create new API key */}
+                <div className="space-y-2">
+                  <Label htmlFor="newKeyName">Create New API Key</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="newKeyName"
+                      placeholder="Key name (e.g., 'Zapier Integration')"
+                      value={newKeyName}
+                      onChange={(e) => setNewKeyName(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={() => createApiKeyMutation.mutate(newKeyName)}
+                      disabled={createApiKeyMutation.isPending || !newKeyName.trim()}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      {createApiKeyMutation.isPending ? "Creating..." : "Generate"}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Existing API keys list */}
+                {apiKeys.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Active API Keys</Label>
+                    <div className="space-y-2">
+                      {apiKeys.map((key) => (
+                        <div
+                          key={key.id}
+                          className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border"
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">{key.name}</div>
+                            <div className="text-xs text-slate-500 font-mono">{key.keyPreview}</div>
+                            <div className="text-xs text-slate-400 mt-1">
+                              Created: {new Date(key.createdAt).toLocaleDateString()}
+                              {key.lastUsedAt && (
+                                <span className="ml-2">
+                                  • Last used: {new Date(key.lastUsedAt).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => deleteApiKeyMutation.mutate(key.id)}
+                            disabled={deleteApiKeyMutation.isPending}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {apiKeys.length === 0 && !newlyCreatedKey && (
+                  <p className="text-sm text-slate-500 text-center py-4">
+                    No API keys yet. Create one to enable Zapier integration.
+                  </p>
+                )}
               </CardContent>
             </Card>
 

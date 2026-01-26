@@ -1,11 +1,12 @@
-import { 
-  meetings, 
-  projects, 
-  tasks, 
+import {
+  meetings,
+  projects,
+  tasks,
   metaInsights,
   systemPrompts,
+  apiKeys,
   users,
-  type Meeting, 
+  type Meeting,
   type InsertMeeting,
   type Project,
   type InsertProject,
@@ -15,9 +16,11 @@ import {
   type InsertMetaInsights,
   type SystemPrompt,
   type InsertSystemPrompt,
+  type ApiKey,
   type User,
   type UpsertUser
 } from "@shared/schema";
+import crypto from "crypto";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
 
@@ -62,6 +65,13 @@ export interface IStorage {
   getSystemPrompt(name: string): Promise<SystemPrompt | undefined>;
   updateSystemPrompt(name: string, updates: Partial<InsertSystemPrompt>): Promise<SystemPrompt | undefined>;
   createSystemPrompt(prompt: InsertSystemPrompt): Promise<SystemPrompt>;
+
+  // API key operations
+  createApiKey(name: string): Promise<{ apiKey: ApiKey; plainKey: string }>;
+  validateApiKey(key: string): Promise<ApiKey | undefined>;
+  getApiKeys(): Promise<ApiKey[]>;
+  deleteApiKey(id: number): Promise<boolean>;
+  updateApiKeyLastUsed(id: number): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -142,6 +152,7 @@ export class MemStorage implements IStorage {
       effectivenessScore: insertMeeting.effectivenessScore || 0,
       wentWell: insertMeeting.wentWell || [],
       areasToImprove: insertMeeting.areasToImprove || [],
+      source: insertMeeting.source || "manual",
       createdAt: new Date(),
     };
     this.meetings.set(id, meeting);
@@ -356,6 +367,27 @@ export class MemStorage implements IStorage {
     };
     this.systemPrompts.set(prompt.name, systemPrompt);
     return systemPrompt;
+  }
+
+  // API key operations (not implemented for MemStorage)
+  async createApiKey(_name: string): Promise<{ apiKey: ApiKey; plainKey: string }> {
+    throw new Error("API keys not supported in memory storage");
+  }
+
+  async validateApiKey(_key: string): Promise<ApiKey | undefined> {
+    return undefined;
+  }
+
+  async getApiKeys(): Promise<ApiKey[]> {
+    return [];
+  }
+
+  async deleteApiKey(_id: number): Promise<boolean> {
+    return false;
+  }
+
+  async updateApiKeyLastUsed(_id: number): Promise<void> {
+    // no-op
   }
 }
 
@@ -616,6 +648,44 @@ export class DatabaseStorage implements IStorage {
   async createSystemPrompt(prompt: InsertSystemPrompt): Promise<SystemPrompt> {
     const [created] = await db.insert(systemPrompts).values(prompt).returning();
     return created;
+  }
+
+  // API key operations
+  async createApiKey(name: string): Promise<{ apiKey: ApiKey; plainKey: string }> {
+    const plainKey = `omny_${crypto.randomBytes(24).toString('hex')}`;
+    const [created] = await db.insert(apiKeys).values({
+      key: plainKey,
+      name,
+      isActive: true,
+    }).returning();
+    return { apiKey: created, plainKey };
+  }
+
+  async validateApiKey(key: string): Promise<ApiKey | undefined> {
+    const [apiKey] = await db.select().from(apiKeys)
+      .where(and(eq(apiKeys.key, key), eq(apiKeys.isActive, true)));
+    return apiKey || undefined;
+  }
+
+  async getApiKeys(): Promise<ApiKey[]> {
+    const keys = await db.select().from(apiKeys)
+      .where(eq(apiKeys.isActive, true))
+      .orderBy(desc(apiKeys.createdAt));
+    return keys;
+  }
+
+  async deleteApiKey(id: number): Promise<boolean> {
+    const [updated] = await db.update(apiKeys)
+      .set({ isActive: false })
+      .where(eq(apiKeys.id, id))
+      .returning();
+    return !!updated;
+  }
+
+  async updateApiKeyLastUsed(id: number): Promise<void> {
+    await db.update(apiKeys)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(apiKeys.id, id));
   }
 }
 
