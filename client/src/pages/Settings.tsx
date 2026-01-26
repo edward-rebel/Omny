@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar, MobileHeader } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { CheckCircle, AlertCircle, Settings2, ChevronDown, LogOut, User, RotateCcw } from "lucide-react";
+import { CheckCircle, AlertCircle, Settings2, ChevronDown, LogOut, User, RotateCcw, Save } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,23 +22,17 @@ export default function Settings() {
   const [isEditingName, setIsEditingName] = useState(false);
   const { toast } = useToast();
 
-  // Get system prompts
   const { data: systemPrompts = [] } = useQuery<SystemPrompt[]>({
     queryKey: ["/api/system-prompts"],
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Initialize display name when user data loads
   useEffect(() => {
     if (user && !displayName) {
       setDisplayName(user.displayName || user.firstName || user.email?.split('@')[0] || 'User');
     }
   }, [user]);
 
-
-
-  // Initialize default prompts if none exist
-  // Update user display name
   const updateDisplayNameMutation = useMutation({
     mutationFn: async (newDisplayName: string) => {
       return apiRequest("PATCH", "/api/auth/user", { displayName: newDisplayName });
@@ -80,7 +74,7 @@ Return a JSON object matching this exact structure:
 {
   "meeting": {
     "title": "descriptive meeting title",
-    "date": "YYYY-MM-DD", 
+    "date": "YYYY-MM-DD",
     "participants": ["Edward", "other participants"]
   },
   "key_takeaways": ["key point 1", "key point 2"],
@@ -126,19 +120,14 @@ Return a JSON object matching this exact structure:
     },
   });
 
-
-
   const togglePromptExpansion = (name: string) => {
-    setExpandedPrompts(prev => 
-      prev.includes(name) 
+    setExpandedPrompts(prev =>
+      prev.includes(name)
         ? prev.filter(p => p !== name)
         : [...prev, name]
     );
   };
 
-
-
-  // Clear user data mutation
   const clearDataMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("DELETE", "/api/clear-data", {});
@@ -148,8 +137,7 @@ Return a JSON object matching this exact structure:
         title: "Data Cleared",
         description: "All your meeting data, projects, and tasks have been permanently deleted.",
       });
-      
-      // Invalidate all data queries to refresh empty state
+
       queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
@@ -165,34 +153,35 @@ Return a JSON object matching this exact structure:
   });
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
       <Sidebar />
-      
+      <MobileHeader title="Settings" subtitle="App configuration" />
+
       <main className="flex-1 overflow-hidden">
-        <header className="bg-white border-b border-slate-200 px-8 py-6">
+        <header className="hidden md:block bg-white border-b border-slate-200 px-4 md:px-8 py-4 md:py-6">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
-            <p className="text-slate-600 mt-1">Configure your Omny application settings</p>
+            <h1 className="text-xl md:text-2xl font-semibold text-slate-900">Settings</h1>
+            <p className="text-slate-600 mt-1 text-sm md:text-base">Configure your Omny application settings</p>
           </div>
         </header>
-        
-        <div className="p-8 h-full overflow-y-auto">
-          <div className="max-w-2xl mx-auto space-y-6">
-            
+
+        <div className="p-4 md:p-8 h-full overflow-y-auto">
+          <div className="max-w-2xl mx-auto space-y-4 md:space-y-6">
+
             {/* User Profile Section */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="w-5 h-5" />
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <User className="w-4 h-4 md:w-5 md:h-5" />
                   User Profile
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs md:text-sm">
                   Manage your display name and profile settings
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="p-4 md:p-6 pt-0 space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="displayName">Display Name</Label>
+                  <Label htmlFor="displayName" className="text-sm">Display Name</Label>
                   <div className="flex items-center gap-2">
                     {isEditingName ? (
                       <>
@@ -201,7 +190,7 @@ Return a JSON object matching this exact structure:
                           value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
                           placeholder="Enter your display name"
-                          className="flex-1"
+                          className="flex-1 text-sm"
                         />
                         <Button
                           size="sm"
@@ -226,7 +215,7 @@ Return a JSON object matching this exact structure:
                         <Input
                           value={displayName}
                           readOnly
-                          className="flex-1 bg-slate-50"
+                          className="flex-1 bg-slate-50 text-sm"
                         />
                         <Button
                           size="sm"
@@ -238,20 +227,20 @@ Return a JSON object matching this exact structure:
                       </>
                     )}
                   </div>
-                  <p className="text-sm text-slate-600">
-                    This name is used for task assignment and AI personalization. It affects how tasks are filtered in the "My Tasks" section.
+                  <p className="text-xs md:text-sm text-slate-600">
+                    This name is used for task assignment and AI personalization.
                   </p>
                 </div>
-                
+
                 <div className="space-y-2">
-                  <Label>Email</Label>
+                  <Label className="text-sm">Email</Label>
                   <Input
                     value={user?.email || ''}
                     readOnly
-                    className="bg-slate-50"
+                    className="bg-slate-50 text-sm"
                   />
-                  <p className="text-sm text-slate-600">
-                    Your email address cannot be changed as it's linked to your authentication.
+                  <p className="text-xs md:text-sm text-slate-600">
+                    Your email address cannot be changed.
                   </p>
                 </div>
               </CardContent>
@@ -259,75 +248,75 @@ Return a JSON object matching this exact structure:
 
             {/* System Prompts Section */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings2 className="w-5 h-5" />
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Settings2 className="w-4 h-4 md:w-5 md:h-5" />
                   System Prompts
                 </CardTitle>
-                <CardDescription>
-                  Customize how the AI analyzes your meeting transcripts and generates insights
+                <CardDescription className="text-xs md:text-sm">
+                  Customize how the AI analyzes your meeting transcripts
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="p-4 md:p-6 pt-0 space-y-4">
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    System prompts control how the AI processes your meetings. Changes affect future analyses. Use "Rerun Analysis" to apply updates to existing meetings.
+                  <AlertDescription className="text-xs md:text-sm">
+                    System prompts control how the AI processes your meetings.
                   </AlertDescription>
                 </Alert>
 
                 {systemPrompts.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-slate-600 mb-4">No system prompts found. Initialize default prompts to get started.</p>
+                  <div className="text-center py-6 md:py-8">
+                    <p className="text-slate-600 mb-4 text-sm">No system prompts found.</p>
                     <Button
                       onClick={() => initializePromptsMutation.mutate()}
                       disabled={initializePromptsMutation.isPending}
+                      size="sm"
                     >
                       {initializePromptsMutation.isPending ? "Initializing..." : "Initialize Default Prompts"}
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3 md:space-y-4">
                     {systemPrompts.map((prompt) => (
-                      <Collapsible 
+                      <Collapsible
                         key={prompt.name}
                         open={expandedPrompts.includes(prompt.name)}
                         onOpenChange={() => togglePromptExpansion(prompt.name)}
                       >
                         <Card className="border-slate-200">
                           <CollapsibleTrigger asChild>
-                            <CardHeader className="cursor-pointer hover:bg-slate-50 transition-colors">
+                            <CardHeader className="cursor-pointer hover:bg-slate-50 transition-colors p-3 md:p-4">
                               <div className="flex items-center justify-between">
-                                <div>
-                                  <CardTitle className="text-base font-medium capitalize">
+                                <div className="min-w-0">
+                                  <CardTitle className="text-sm md:text-base font-medium capitalize truncate">
                                     {prompt.name.replace(/_/g, ' ')}
                                   </CardTitle>
-                                  <CardDescription className="text-sm">
+                                  <CardDescription className="text-xs md:text-sm truncate">
                                     {prompt.description}
                                   </CardDescription>
                                 </div>
-                                <ChevronDown className="w-4 h-4 transition-transform data-[state=open]:rotate-180" />
+                                <ChevronDown className="w-4 h-4 transition-transform data-[state=open]:rotate-180 shrink-0 ml-2" />
                               </div>
                             </CardHeader>
                           </CollapsibleTrigger>
-                          
+
                           <CollapsibleContent>
-                            <CardContent className="pt-0">
-                              <div className="space-y-4">
+                            <CardContent className="p-3 md:p-4 pt-0">
+                              <div className="space-y-3 md:space-y-4">
                                 <div className="space-y-2">
-                                  <Label>Current Prompt</Label>
-                                  <div className="bg-slate-50 border rounded-md p-3">
+                                  <Label className="text-xs md:text-sm">Current Prompt</Label>
+                                  <div className="bg-slate-50 border rounded-md p-2 md:p-3 max-h-48 md:max-h-64 overflow-y-auto">
                                     <pre className="text-xs text-slate-700 whitespace-pre-wrap break-words">
                                       {prompt.prompt}
                                     </pre>
                                   </div>
                                 </div>
                               </div>
-                              
-                              <div className="mt-4 pt-4 border-t border-slate-200">
+
+                              <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t border-slate-200">
                                 <div className="text-xs text-slate-500 space-y-1">
                                   <p><strong>Created:</strong> {new Date(prompt.createdAt).toLocaleDateString()}</p>
-                                  <p><strong>Last Updated:</strong> {new Date(prompt.updatedAt).toLocaleDateString()}</p>
                                   <p><strong>Status:</strong> {prompt.isActive ? "Active" : "Inactive"}</p>
                                 </div>
                               </div>
@@ -343,24 +332,25 @@ Return a JSON object matching this exact structure:
 
             {/* Account Section */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <LogOut className="w-5 h-5" />
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <LogOut className="w-4 h-4 md:w-5 md:h-5" />
                   Account
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs md:text-sm">
                   Manage your account settings and data
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-4">
-                  <div className="p-4 border border-orange-200 bg-orange-50 rounded-lg">
-                    <h3 className="text-sm font-medium text-slate-900 mb-2">Clear My Data</h3>
-                    <p className="text-sm text-slate-600 mb-3">
-                      Permanently delete all your meetings, projects, tasks, and analysis data. Your account information will remain intact. This action cannot be undone.
+              <CardContent className="p-4 md:p-6 pt-0 space-y-4">
+                <div className="space-y-3 md:space-y-4">
+                  <div className="p-3 md:p-4 border border-orange-200 bg-orange-50 rounded-lg">
+                    <h3 className="text-xs md:text-sm font-medium text-slate-900 mb-2">Clear My Data</h3>
+                    <p className="text-xs md:text-sm text-slate-600 mb-3">
+                      Permanently delete all your meetings, projects, and tasks.
                     </p>
-                    <Button 
-                      variant="destructive" 
+                    <Button
+                      variant="destructive"
+                      size="sm"
                       onClick={() => clearDataMutation.mutate()}
                       disabled={clearDataMutation.isPending}
                       className="flex items-center gap-2"
@@ -369,14 +359,15 @@ Return a JSON object matching this exact structure:
                       {clearDataMutation.isPending ? "Clearing..." : "Clear My Data"}
                     </Button>
                   </div>
-                  
-                  <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
-                    <h3 className="text-sm font-medium text-slate-900 mb-2">Logout</h3>
-                    <p className="text-sm text-slate-600 mb-3">
-                      Sign out of your Omny account. You'll need to log in again to access your meetings and data.
+
+                  <div className="p-3 md:p-4 border border-red-200 bg-red-50 rounded-lg">
+                    <h3 className="text-xs md:text-sm font-medium text-slate-900 mb-2">Logout</h3>
+                    <p className="text-xs md:text-sm text-slate-600 mb-3">
+                      Sign out of your Omny account.
                     </p>
-                    <Button 
-                      variant="destructive" 
+                    <Button
+                      variant="destructive"
+                      size="sm"
                       onClick={() => window.location.href = '/api/logout'}
                       className="flex items-center gap-2"
                     >
@@ -390,22 +381,22 @@ Return a JSON object matching this exact structure:
 
             {/* App Information */}
             <Card>
-              <CardHeader>
-                <CardTitle>Application Information</CardTitle>
-                <CardDescription>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="text-base md:text-lg">Application Information</CardTitle>
+                <CardDescription className="text-xs md:text-sm">
                   Details about your Omny installation
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between text-sm">
+              <CardContent className="p-4 md:p-6 pt-0 space-y-2">
+                <div className="flex justify-between text-xs md:text-sm">
                   <span className="text-slate-600">Version:</span>
                   <span className="font-mono">1.0.0</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs md:text-sm">
                   <span className="text-slate-600">Storage:</span>
                   <span>PostgreSQL Database</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs md:text-sm">
                   <span className="text-slate-600">AI Model:</span>
                   <span>GPT-4o-mini</span>
                 </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar, MobileHeader } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,7 +19,7 @@ export default function Todos() {
   const [editingTask, setEditingTask] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
   const [reassigningTask, setReassigningTask] = useState<number | null>(null);
-  
+
   const { data: allTasks = [], isLoading } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
     staleTime: 0,
@@ -50,7 +50,6 @@ export default function Todos() {
 
   const myTasks = allTasks.filter(task => {
     if (!user) return false;
-    // Use display name first, then fall back to firstName or email-based name
     const currentUserName = (user.displayName || user.firstName || user.email?.split('@')[0] || 'user').toLowerCase();
     const owner = task.owner.toLowerCase();
     return owner === currentUserName || owner === currentUserName.split(' ')[0];
@@ -132,7 +131,6 @@ export default function Todos() {
     reassignTaskMutation.mutate({ taskId, owner: newOwner });
   };
 
-  // Get unique owners from all tasks for the reassignment dropdown
   const allOwners = Array.from(new Set(allTasks.map(task => task.owner))).sort();
   const currentUserName = user ? (user.displayName || user.firstName || user.email?.split('@')[0] || 'User') : 'User';
   const reassignmentOptions = [
@@ -142,8 +140,8 @@ export default function Todos() {
 
   const TaskCard = ({ task, showOwner = false }: { task: Task; showOwner?: boolean }) => (
     <Card key={task.id} className={`group/card transition-all ${task.completed ? 'opacity-60 bg-slate-50' : 'bg-white'}`}>
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
+      <CardContent className="p-3 md:p-4">
+        <div className="flex items-start gap-2 md:gap-3">
           <Checkbox
             checked={task.completed}
             onCheckedChange={() => handleTaskToggle(task.id, task.completed)}
@@ -178,18 +176,18 @@ export default function Todos() {
               </div>
             ) : (
               <div className="flex items-start gap-2">
-                <div 
+                <div
                   className="group flex items-start gap-2 cursor-pointer flex-1"
                   onClick={() => !task.completed && startEditing(task.id, task.task)}
                 >
-                  <p className={`text-sm font-medium flex-1 ${task.completed ? 'line-through text-slate-500' : 'text-slate-900'}`}>
+                  <p className={`text-xs md:text-sm font-medium flex-1 ${task.completed ? 'line-through text-slate-500' : 'text-slate-900'}`}>
                     {task.task}
                   </p>
                   {!task.completed && (
-                    <Edit3 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5" />
+                    <Edit3 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 hidden md:block" />
                   )}
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 md:opacity-0 md:group-hover/card:opacity-100 transition-opacity">
                   <Popover open={reassigningTask === task.id} onOpenChange={(open) => setReassigningTask(open ? task.id : null)}>
                     <PopoverTrigger asChild>
                       <button
@@ -233,7 +231,7 @@ export default function Todos() {
                       </div>
                     </PopoverContent>
                   </Popover>
-                  
+
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -248,7 +246,7 @@ export default function Todos() {
                 </div>
               </div>
             )}
-            <div className="flex items-center gap-3 mt-2">
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-2">
               {showOwner && (
                 <div className="flex items-center gap-1 text-xs text-slate-600">
                   <User className="w-3 h-3" />
@@ -261,7 +259,7 @@ export default function Todos() {
                   Due {formatDate(task.due)}
                 </div>
               )}
-              <Badge variant="outline" className={getPriorityColor(task.priority)}>
+              <Badge variant="outline" className={`${getPriorityColor(task.priority)} text-xs`}>
                 {task.priority}
               </Badge>
             </div>
@@ -272,27 +270,28 @@ export default function Todos() {
   );
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
       <Sidebar />
-      
+      <MobileHeader title="Todo Lists" subtitle="Manage your tasks" />
+
       <main className="flex-1 overflow-hidden">
-        <header className="bg-white border-b border-slate-200 px-8 py-6">
+        <header className="hidden md:block bg-white border-b border-slate-200 px-4 md:px-8 py-4 md:py-6">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Todo Lists</h1>
-            <p className="text-slate-600 mt-1">Track and manage all your action items from meetings</p>
+            <h1 className="text-xl md:text-2xl font-semibold text-slate-900">Todo Lists</h1>
+            <p className="text-slate-600 mt-1 text-sm md:text-base">Track and manage all your action items from meetings</p>
           </div>
         </header>
-        
-        <div className="p-8 h-full overflow-y-auto">
+
+        <div className="p-4 md:p-8 h-full overflow-y-auto">
           {isLoading ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
               {[1, 2].map((section) => (
-                <div key={section} className="space-y-4">
-                  <div className="h-8 bg-slate-200 rounded w-1/3 animate-pulse"></div>
+                <div key={section} className="space-y-3 md:space-y-4">
+                  <div className="h-6 md:h-8 bg-slate-200 rounded w-1/3 animate-pulse"></div>
                   {[1, 2, 3].map((i) => (
                     <Card key={i} className="animate-pulse">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
+                      <CardContent className="p-3 md:p-4">
+                        <div className="flex items-start gap-2 md:gap-3">
                           <div className="w-4 h-4 bg-slate-200 rounded mt-1"></div>
                           <div className="flex-1 space-y-2">
                             <div className="h-4 bg-slate-200 rounded w-3/4"></div>
@@ -306,32 +305,30 @@ export default function Todos() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
               {/* My Tasks */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-semibold text-slate-900">My Tasks</h2>
+              <div className="space-y-3 md:space-y-4">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <h2 className="text-lg md:text-xl font-semibold text-slate-900">My Tasks</h2>
                   <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                     {myTasks.filter(t => !t.completed).length} active
                   </Badge>
                 </div>
-                
+
                 {myTasks.length === 0 ? (
                   <Card>
-                    <CardContent className="p-8 text-center">
-                      <CheckCircle2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-600">No tasks assigned to you yet</p>
+                    <CardContent className="p-6 md:p-8 text-center">
+                      <CheckCircle2 className="w-10 h-10 md:w-12 md:h-12 text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-600 text-sm md:text-base">No tasks assigned to you yet</p>
                     </CardContent>
                   </Card>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2 md:space-y-3">
                     {myTasks
                       .sort((a, b) => {
-                        // Show incomplete tasks first, then completed
                         if (a.completed !== b.completed) {
                           return a.completed ? 1 : -1;
                         }
-                        // Within each group, sort by priority
                         const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
                         const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 4;
                         const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 4;
@@ -345,30 +342,28 @@ export default function Todos() {
               </div>
 
               {/* Others' Tasks */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-semibold text-slate-900">Others' Tasks</h2>
+              <div className="space-y-3 md:space-y-4">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <h2 className="text-lg md:text-xl font-semibold text-slate-900">Others' Tasks</h2>
                   <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">
                     {otherTasks.filter(t => !t.completed).length} active
                   </Badge>
                 </div>
-                
+
                 {otherTasks.length === 0 ? (
                   <Card>
-                    <CardContent className="p-8 text-center">
-                      <Clock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-600">No tasks assigned to others yet</p>
+                    <CardContent className="p-6 md:p-8 text-center">
+                      <Clock className="w-10 h-10 md:w-12 md:h-12 text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-600 text-sm md:text-base">No tasks assigned to others yet</p>
                     </CardContent>
                   </Card>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2 md:space-y-3">
                     {otherTasks
                       .sort((a, b) => {
-                        // Show incomplete tasks first, then completed
                         if (a.completed !== b.completed) {
                           return a.completed ? 1 : -1;
                         }
-                        // Within each group, sort by priority
                         const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
                         const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 4;
                         const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 4;

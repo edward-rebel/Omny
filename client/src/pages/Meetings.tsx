@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar, MobileHeader } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, Users, TrendingUp, MessageSquare } from "lucide-react";
@@ -9,9 +9,9 @@ import { Meeting } from "@shared/schema";
 export default function Meetings() {
   const { data: meetings = [], isLoading } = useQuery<Meeting[]>({
     queryKey: ["/api/meetings"],
-    staleTime: 0, // Always fetch fresh data
-    refetchOnMount: true, // Refetch when component mounts
-    refetchOnWindowFocus: true, // Refetch when window gets focus
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   const formatDate = (dateString: string) => {
@@ -30,27 +30,28 @@ export default function Meetings() {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
       <Sidebar />
-      
+      <MobileHeader title="Meeting History" subtitle="Browse your meetings" />
+
       <main className="flex-1 overflow-hidden">
-        <header className="bg-white border-b border-slate-200 px-8 py-6">
+        <header className="hidden md:block bg-white border-b border-slate-200 px-4 md:px-8 py-4 md:py-6">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Meeting History</h1>
-            <p className="text-slate-600 mt-1">Browse and review your analyzed meeting transcripts</p>
+            <h1 className="text-xl md:text-2xl font-semibold text-slate-900">Meeting History</h1>
+            <p className="text-slate-600 mt-1 text-sm md:text-base">Browse and review your analyzed meeting transcripts</p>
           </div>
         </header>
-        
-        <div className="p-8 h-full overflow-y-auto">
+
+        <div className="p-4 md:p-8 h-full overflow-y-auto">
           {isLoading ? (
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {[1, 2, 3].map((i) => (
                 <Card key={i} className="animate-pulse">
-                  <CardHeader>
-                    <div className="h-6 bg-slate-200 rounded w-3/4"></div>
-                    <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+                  <CardHeader className="p-4 md:p-6">
+                    <div className="h-5 md:h-6 bg-slate-200 rounded w-3/4"></div>
+                    <div className="h-4 bg-slate-200 rounded w-1/2 mt-2"></div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-4 md:p-6 pt-0">
                     <div className="space-y-2">
                       <div className="h-4 bg-slate-200 rounded"></div>
                       <div className="h-4 bg-slate-200 rounded w-4/5"></div>
@@ -60,56 +61,54 @@ export default function Meetings() {
               ))}
             </div>
           ) : meetings.length === 0 ? (
-            <div className="text-center py-12">
-              <MessageSquare className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-slate-900 mb-2">No meetings yet</h3>
-              <p className="text-slate-600 mb-6">Start by analyzing your first meeting transcript</p>
+            <div className="text-center py-8 md:py-12">
+              <MessageSquare className="w-12 h-12 md:w-16 md:h-16 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-base md:text-lg font-medium text-slate-900 mb-2">No meetings yet</h3>
+              <p className="text-slate-600 mb-6 text-sm md:text-base">Start by analyzing your first meeting transcript</p>
               <Link href="/new-meeting">
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base">
                   Analyze Meeting
                 </button>
               </Link>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {meetings
                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                 .map((meeting) => (
                 <Link key={meeting.id} href={`/meeting/${meeting.id}`}>
                   <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-blue-500">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg text-slate-900 mb-2">
+                    <CardHeader className="p-4 md:p-6 pb-2 md:pb-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-base md:text-lg text-slate-900 mb-2 truncate">
                             {meeting.title}
                           </CardTitle>
-                          <div className="flex items-center gap-4 text-sm text-slate-600">
+                          <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-slate-600">
                             <div className="flex items-center gap-1">
-                              <CalendarIcon className="w-4 h-4" />
+                              <CalendarIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
                               {formatDate(meeting.date)}
                             </div>
                             <div className="flex items-center gap-1">
-                              <Users className="w-4 h-4" />
+                              <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
                               {meeting.participants?.length || 0} participants
                             </div>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <Badge 
-                            variant="outline" 
-                            className={`${getEffectivenessColor(meeting.effectivenessScore || 0)} flex items-center gap-1`}
-                          >
-                            <TrendingUp className="w-3 h-3" />
-                            {meeting.effectivenessScore || 0}/10
-                          </Badge>
-                        </div>
+                        <Badge
+                          variant="outline"
+                          className={`${getEffectivenessColor(meeting.effectivenessScore || 0)} flex items-center gap-1 shrink-0`}
+                        >
+                          <TrendingUp className="w-3 h-3" />
+                          {meeting.effectivenessScore || 0}/10
+                        </Badge>
                       </div>
                     </CardHeader>
-                    <CardContent className="pt-0">
+                    <CardContent className="p-4 md:p-6 pt-0">
                       <div className="space-y-3">
                         <div>
-                          <h4 className="text-sm font-medium text-slate-900 mb-1">Key Takeaways</h4>
-                          <div className="text-sm text-slate-600">
+                          <h4 className="text-xs md:text-sm font-medium text-slate-900 mb-1">Key Takeaways</h4>
+                          <div className="text-xs md:text-sm text-slate-600">
                             {meeting.keyTakeaways && meeting.keyTakeaways.length > 0 ? (
                               <ul className="list-disc list-inside space-y-1">
                                 {meeting.keyTakeaways.slice(0, 2).map((takeaway, index) => (
@@ -126,12 +125,12 @@ export default function Meetings() {
                             )}
                           </div>
                         </div>
-                        
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="text-slate-500">
+
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs md:text-sm">
+                          <div className="text-slate-500 truncate">
                             {meeting.participants?.join(", ") || "No participants listed"}
                           </div>
-                          <div className="text-blue-600 font-medium">
+                          <div className="text-blue-600 font-medium shrink-0">
                             View Full Analysis →
                           </div>
                         </div>
