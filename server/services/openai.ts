@@ -62,6 +62,7 @@ export async function analyzeMeetingTranscript(
         { role: "system", content: systemPrompt },
         { role: "user", content: `Analyze this meeting transcript:\n\n${transcript}` }
       ],
+      response_format: { type: "json_object" },
       temperature: 0.1,
       max_completion_tokens: 4000,
     });
