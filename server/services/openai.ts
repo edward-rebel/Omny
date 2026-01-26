@@ -96,18 +96,7 @@ export async function analyzeMeetingTranscript(
     }
   } catch (error) {
     console.error('OpenAI API error:', error);
-    
-    // If quota exceeded or model access issues, provide demo analysis
-    if (error instanceof Error && (
-      error.message.includes('quota') || 
-      error.message.includes('model') ||
-      error.message.includes('429') ||
-      error.message.includes('404')
-    )) {
-      console.log('Providing demo analysis due to API limitations');
-      return generateDemoAnalysis(transcript);
-    }
-    
+
     if (error instanceof Error) {
       throw error;
     }
@@ -115,88 +104,3 @@ export async function analyzeMeetingTranscript(
   }
 }
 
-function generateDemoAnalysis(transcript: string): MeetingAnalysis {
-  // Extract basic info from transcript
-  const lines = transcript.split('\n').filter(line => line.trim());
-  const participants = new Set<string>();
-  
-  lines.forEach(line => {
-    const match = line.match(/\[(.*?)\]\s+([^:]+):/);
-    if (match) {
-      participants.add(match[2].trim());
-    }
-  });
-  
-  const participantList = Array.from(participants);
-  const today = new Date().toISOString().split('T')[0];
-  
-  return {
-    meeting: {
-      title: "Q4 Budget Planning Meeting",
-      date: today,
-      participants: participantList.length > 0 ? participantList : ["User", "Sarah", "David", "Jennifer"]
-    },
-    summary: "Team reviewed Q4 budget performance and discussed strategic priorities for Q1, including scaling infrastructure for expected user growth and finalizing resource allocation for critical projects.",
-    key_takeaways: [
-      "Q4 spending came in 3% under budget, providing flexibility for Q1 strategic initiatives and unexpected opportunities",
-      "Customer portal API needs immediate scaling architecture review for projected 15k users by March, requiring dedicated engineering resources",
-      "Marketing campaign launch in February expects 20% growth in sign-ups, necessitating infrastructure readiness and support team scaling",
-      "Technical team requires dedicated resources for portal enhancement to meet user growth projections and maintain performance standards",
-      "Budget reallocation approved for additional engineering hires to support critical infrastructure projects",
-      "Q1 priorities established with clear ownership and deadlines for all major deliverables"
-    ],
-    topics_discussed: [
-      "Q4 budget performance review",
-      "Customer portal API scaling requirements",
-      "Marketing campaign timeline and impact",
-      "Engineering resource allocation",
-      "Infrastructure capacity planning",
-      "Q1 strategic priorities",
-      "Hiring decisions and team expansion",
-      "Technical architecture improvements"
-    ],
-    action_items: {
-      user: [
-        { task: "Review technical proposal and budget analysis", due: "Next Friday", priority: "high" },
-        { task: "Make hiring decision for additional engineers", due: "End of week", priority: "medium" }
-      ],
-      others: [
-        { task: "Prepare technical proposal for customer portal API", owner: "David", due: "Next Friday", priority: "urgent" },
-        { task: "Run budget impact analysis for hiring 3 engineers", owner: "Sarah", due: "Thursday", priority: "high" },
-        { task: "Coordinate marketing campaign timeline with engineering", owner: "Jennifer", due: "This week", priority: "medium" }
-      ]
-    },
-    follow_ups: [
-      "Schedule follow-up meeting to review technical proposal",
-      "Align marketing and engineering timelines for Q1",
-      "Finalize hiring plan and budget allocation"
-    ],
-    projects: [
-      {
-        name: "Customer Portal API Scaling",
-        update: "Architecture needs enhancement to handle 15k+ users. Requires dedicated team of 3 engineers.",
-        context: "Critical infrastructure project requiring significant engineering resources to scale customer portal API for 15k+ concurrent users.",
-        status: "open"
-      },
-      {
-        name: "Q1 Marketing Campaign",
-        update: "February launch planned with 20% growth target. Dependencies on portal capacity.",
-        context: "Strategic growth initiative targeting 20% user acquisition increase through coordinated marketing efforts dependent on infrastructure capacity.",
-        status: "open"
-      }
-    ],
-    effectiveness: {
-      score: 8,
-      went_well: [
-        "Clear agenda and purpose",
-        "Good cross-team collaboration",
-        "Concrete action items assigned",
-        "Efficient use of time"
-      ],
-      improve: [
-        "Could have discussed timeline dependencies earlier",
-        "More specific budget numbers needed"
-      ]
-    }
-  };
-}
