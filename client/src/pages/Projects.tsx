@@ -1,15 +1,59 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { useState } from "react";
 import { Sidebar, MobileHeader } from "@/components/Sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronRight } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ChevronRight, Trash2 } from "lucide-react";
 import type { ProjectWithTasks } from "@/lib/types";
 
 export default function Projects() {
+  const queryClient = useQueryClient();
+  const [projectToDelete, setProjectToDelete] = useState<ProjectWithTasks | null>(null);
+
   const { data: projects, isLoading, error } = useQuery<ProjectWithTasks[]>({
     queryKey: ["/api/projects"],
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (projectId: number) => {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to delete project");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setProjectToDelete(null);
+    },
+  });
+
+  const handleDeleteClick = (e: React.MouseEvent, project: ProjectWithTasks) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setProjectToDelete(project);
+  };
+
+  const confirmDelete = () => {
+    if (projectToDelete) {
+      deleteMutation.mutate(projectToDelete.id);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -82,9 +126,19 @@ export default function Projects() {
                   <div key={project.id} className="bg-white rounded-xl border border-slate-200 p-4 md:p-6 flex flex-col min-h-[280px] md:h-96">
                     <div className="flex items-start justify-between mb-3 gap-2">
                       <h3 className="text-base md:text-lg font-semibold text-slate-900 line-clamp-2">{project.name}</h3>
-                      <Badge className={`${getStatusColor(project.status)} text-xs md:text-sm font-medium shrink-0`}>
-                        {getStatusLabel(project.status)}
-                      </Badge>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge className={`${getStatusColor(project.status)} text-xs md:text-sm font-medium`}>
+                          {getStatusLabel(project.status)}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={(e) => handleDeleteClick(e, project)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="text-xs md:text-sm mb-3">
@@ -136,6 +190,26 @@ export default function Projects() {
           </div>
         </div>
       </main>
+
+      <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{projectToDelete?.name}"? Tasks associated with this project will be unlinked but not deleted. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

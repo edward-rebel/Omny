@@ -724,6 +724,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete meeting
+  app.delete("/api/meetings/:id", async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid meeting ID" });
+      }
+
+      const userId = LOCAL_USER_ID;
+      const success = await storage.deleteMeeting(id, userId);
+      if (!success) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+
+      res.json({ message: "Meeting deleted successfully" });
+    } catch (error) {
+      console.error("Meeting delete error:", error);
+      res.status(500).json({ message: "Failed to delete meeting" });
+    }
+  });
+
+  // Delete project
+  app.delete("/api/projects/:id", async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid project ID" });
+      }
+
+      const userId = LOCAL_USER_ID;
+      const success = await storage.deleteProject(id, userId);
+      if (!success) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      res.json({ message: "Project deleted successfully" });
+    } catch (error) {
+      console.error("Project delete error:", error);
+      res.status(500).json({ message: "Failed to delete project" });
+    }
+  });
+
   // Clear user data endpoint
   app.delete("/api/clear-data", async (req: any, res) => {
     try {

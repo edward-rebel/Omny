@@ -1,15 +1,53 @@
-import { useQuery } from "@tanstack/react-query";
-import { useRoute } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRoute, useLocation } from "wouter";
+import { useState } from "react";
 import { Sidebar, MobileHeader } from "@/components/Sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar, Users } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, Calendar, Users, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import type { ProjectDetailData } from "@/lib/types";
 
 export default function ProjectDetail() {
   const [match, params] = useRoute("/project/:id");
   const projectId = params?.id;
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (projectId: number) => {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to delete project");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setLocation("/projects");
+    },
+  });
+
+  const confirmDelete = () => {
+    if (projectId) {
+      deleteMutation.mutate(parseInt(projectId));
+    }
+  };
 
   const { data, isLoading, error } = useQuery<ProjectDetailData>({
     queryKey: ["/api/project", projectId],
@@ -95,9 +133,20 @@ export default function ProjectDetail() {
               <h1 className="text-xl md:text-2xl font-semibold text-slate-900 truncate">{project.name}</h1>
               <p className="text-slate-600 mt-1 text-sm md:text-base">Project timeline and task overview</p>
             </div>
-            <Badge className={`${getStatusColor(project.status)} text-xs md:text-sm font-medium shrink-0`}>
-              {project.status}
-            </Badge>
+            <div className="flex items-center gap-3 shrink-0">
+              <Badge className={`${getStatusColor(project.status)} text-xs md:text-sm font-medium`}>
+                {project.status}
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            </div>
           </div>
         </header>
 
@@ -109,9 +158,19 @@ export default function ProjectDetail() {
               Back
             </Button>
           </Link>
-          <Badge className={`${getStatusColor(project.status)} text-xs font-medium`}>
-            {project.status}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge className={`${getStatusColor(project.status)} text-xs font-medium`}>
+              {project.status}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-red-600 hover:bg-red-50"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="p-4 md:p-8 h-full overflow-y-auto">
@@ -244,6 +303,26 @@ export default function ProjectDetail() {
           </div>
         </div>
       </main>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{project.name}"? Tasks associated with this project will be unlinked but not deleted. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

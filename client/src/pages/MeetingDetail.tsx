@@ -1,15 +1,52 @@
-import { useQuery } from "@tanstack/react-query";
-import { useParams, Link } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useParams, Link, useLocation } from "wouter";
+import { useState } from "react";
 import { Sidebar, MobileHeader } from "@/components/Sidebar";
 import { MeetingSummary } from "@/components/MeetingSummary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar, Users, TrendingUp } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, Calendar, Users, TrendingUp, Trash2 } from "lucide-react";
 import { Meeting, Task, Project } from "@shared/schema";
 
 export default function MeetingDetail() {
   const { id } = useParams<{ id: string }>();
   const meetingId = parseInt(id || '0');
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (meetingId: number) => {
+      const response = await fetch(`/api/meetings/${meetingId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to delete meeting");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setLocation("/meetings");
+    },
+  });
+
+  const confirmDelete = () => {
+    deleteMutation.mutate(meetingId);
+  };
 
   const { data: meeting, isLoading, error } = useQuery<Meeting>({
     queryKey: [`/api/meetings/${meetingId}`],
@@ -183,17 +220,34 @@ export default function MeetingDetail() {
                 </div>
               </div>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
           </div>
         </header>
 
         {/* Mobile back button */}
-        <div className="md:hidden px-4 py-2 bg-slate-50">
+        <div className="md:hidden px-4 py-2 bg-slate-50 flex items-center justify-between">
           <Link href="/meetings">
             <Button variant="ghost" size="sm" className="text-slate-600">
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back to Meetings
             </Button>
           </Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-red-600 hover:bg-red-50"
+            onClick={() => setShowDeleteDialog(true)}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
         </div>
 
         <div className="p-4 md:p-8 h-full overflow-y-auto">
@@ -217,6 +271,26 @@ export default function MeetingDetail() {
           </div>
         </div>
       </main>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Meeting</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{meeting.title}"? This will also delete all associated tasks. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

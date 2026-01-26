@@ -33,6 +33,7 @@ export interface IStorage {
   getAllMeetings(userId: string): Promise<Meeting[]>;
   getUserMeetings(userId: string): Promise<Meeting[]>;
   updateMeeting(id: number, updates: Partial<InsertMeeting>): Promise<Meeting | undefined>;
+  deleteMeeting(id: number, userId: string): Promise<boolean>;
   
   // Project operations
   createProject(project: InsertProject): Promise<Project>;
@@ -40,6 +41,7 @@ export interface IStorage {
   getProject(id: number, userId: string): Promise<Project | undefined>;
   getAllProjects(userId: string): Promise<Project[]>;
   getProjectByName(name: string, userId: string): Promise<Project | undefined>;
+  deleteProject(id: number, userId: string): Promise<boolean>;
   
   // Task operations
   createTask(task: InsertTask): Promise<Task>;
@@ -166,9 +168,9 @@ export class MemStorage implements IStorage {
   async updateMeeting(id: number, updates: Partial<InsertMeeting>): Promise<Meeting | undefined> {
     const meeting = this.meetings.get(id);
     if (!meeting) return undefined;
-    
-    const updatedMeeting = { 
-      ...meeting, 
+
+    const updatedMeeting = {
+      ...meeting,
       ...updates,
       // Properly handle null/undefined for new optional fields
       summary: updates.summary !== undefined ? updates.summary : meeting.summary,
@@ -176,6 +178,20 @@ export class MemStorage implements IStorage {
     };
     this.meetings.set(id, updatedMeeting);
     return updatedMeeting;
+  }
+
+  async deleteMeeting(id: number, userId: string): Promise<boolean> {
+    const meeting = this.meetings.get(id);
+    if (!meeting || meeting.userId !== userId) return false;
+
+    // Delete associated tasks
+    for (const [taskId, task] of this.tasks) {
+      if (task.meetingId === id) {
+        this.tasks.delete(taskId);
+      }
+    }
+
+    return this.meetings.delete(id);
   }
 
   async createProject(insertProject: InsertProject): Promise<Project> {
@@ -218,6 +234,20 @@ export class MemStorage implements IStorage {
 
   async getProjectByName(name: string, userId: string): Promise<Project | undefined> {
     return Array.from(this.projects.values()).find(p => p.name === name && p.userId === userId);
+  }
+
+  async deleteProject(id: number, userId: string): Promise<boolean> {
+    const project = this.projects.get(id);
+    if (!project || project.userId !== userId) return false;
+
+    // Unlink tasks from this project (set projectId to null)
+    for (const [taskId, task] of this.tasks) {
+      if (task.projectId === id) {
+        this.tasks.set(taskId, { ...task, projectId: null });
+      }
+    }
+
+    return this.projects.delete(id);
   }
 
   async createTask(insertTask: InsertTask): Promise<Task> {
@@ -409,6 +439,19 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
+  async deleteMeeting(id: number, userId: string): Promise<boolean> {
+    // First verify the meeting belongs to the user
+    const meeting = await this.getMeeting(id, userId);
+    if (!meeting) return false;
+
+    // Delete associated tasks first (foreign key constraint)
+    await db.delete(tasks).where(eq(tasks.meetingId, id));
+
+    // Delete the meeting
+    const result = await db.delete(meetings).where(and(eq(meetings.id, id), eq(meetings.userId, userId)));
+    return (result.rowCount || 0) > 0;
+  }
+
   async createProject(project: InsertProject): Promise<Project> {
     const [created] = await db.insert(projects).values({
       ...project,
@@ -445,6 +488,19 @@ export class DatabaseStorage implements IStorage {
     const [project] = await db.select().from(projects)
       .where(and(eq(projects.name, name), eq(projects.userId, userId)));
     return project || undefined;
+  }
+
+  async deleteProject(id: number, userId: string): Promise<boolean> {
+    // First verify the project belongs to the user
+    const project = await this.getProject(id, userId);
+    if (!project) return false;
+
+    // Unlink tasks from this project (set projectId to null) instead of deleting
+    await db.update(tasks).set({ projectId: null }).where(eq(tasks.projectId, id));
+
+    // Delete the project
+    const result = await db.delete(projects).where(and(eq(projects.id, id), eq(projects.userId, userId)));
+    return (result.rowCount || 0) > 0;
   }
 
   async createTask(task: InsertTask): Promise<Task> {
