@@ -105,7 +105,7 @@ Analyze the relationships based on both project names AND context. If merging pr
         { role: "user", content: analysisPrompt }
       ],
       temperature: 0.1,
-      max_tokens: 2000,
+      max_completion_tokens: 2000,
     });
 
     const responseContent = completion.choices[0]?.message?.content;

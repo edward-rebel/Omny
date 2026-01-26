@@ -410,7 +410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const response = await openai.chat.completions.create({
         model: "gpt-5.2",
         messages: [{ role: "user", content: "Say 'API key is working'" }],
-        max_tokens: 10,
+      max_completion_tokens: 10,
       });
 
       if (response.choices[0]?.message?.content) {

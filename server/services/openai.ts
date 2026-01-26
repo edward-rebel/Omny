@@ -63,7 +63,7 @@ export async function analyzeMeetingTranscript(
         { role: "user", content: `Analyze this meeting transcript:\n\n${transcript}` }
       ],
       temperature: 0.1,
-      max_tokens: 4000,
+      max_completion_tokens: 4000,
     });
 
     const responseContent = completion.choices[0]?.message?.content;
