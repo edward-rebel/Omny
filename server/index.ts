@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { storage } from "./storage";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeSystemPrompts } from "./services/systemPrompts";
+import { initializeDatabase } from "./initDb";
 
 const app = express();
 app.use(express.json());
@@ -39,6 +40,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize database schema (creates tables if they don't exist)
+  await initializeDatabase();
+
   const server = await registerRoutes(app);
 
   try {
