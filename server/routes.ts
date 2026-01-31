@@ -5,6 +5,7 @@ import { analyzeMeetingTranscript } from "./services/openai";
 import { analyzeProjectRelationships, processProjectAnalysis } from "./services/projectAnalysis";
 import { updateInsightsWithNarrative } from "./services/analytics";
 import { getUserSpecificPrompt } from "./services/systemPrompts";
+import { analyzeProjectConsolidation, executeConsolidation, type ConsolidationPreview } from "./services/projectConsolidation";
 import { insertMeetingSchema, insertTaskSchema, insertProjectSchema, insertSystemPromptSchema, type Project, tasks, projects, meetings, metaInsights } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -1002,17 +1003,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/clear-data", async (req: any, res) => {
     try {
       const userId = LOCAL_USER_ID;
-      
+
       // Delete user data in correct order due to foreign key constraints
       await db.delete(tasks).where(eq(tasks.userId, userId));
       await db.delete(projects).where(eq(projects.userId, userId));
       await db.delete(meetings).where(eq(meetings.userId, userId));
       await db.delete(metaInsights).where(eq(metaInsights.userId, userId));
-      
+
       res.json({ message: "All user data cleared successfully" });
     } catch (error) {
       console.error("Clear data error:", error);
       res.status(500).json({ message: "Failed to clear user data" });
+    }
+  });
+
+  // Project consolidation preview endpoint
+  app.post("/api/projects/consolidate/preview", async (req: any, res) => {
+    try {
+      const userId = LOCAL_USER_ID;
+      const allProjects = await storage.getAllProjects(userId);
+      const allTasks = await storage.getAllTasks(userId);
+
+      console.log(`Analyzing ${allProjects.length} projects for consolidation...`);
+
+      const preview = await analyzeProjectConsolidation(allProjects, allTasks, userId);
+
+      if (!preview.success) {
+        return res.status(500).json(preview);
+      }
+
+      console.log(`Consolidation preview: ${preview.proposedConsolidations.length} groups found`);
+      res.json(preview);
+    } catch (error) {
+      console.error("Consolidation preview error:", error);
+      const message = error instanceof Error ? error.message : "Failed to analyze projects";
+      res.status(500).json({
+        success: false,
+        originalProjectCount: 0,
+        proposedConsolidations: [],
+        noChanges: true,
+        error: message,
+      });
+    }
+  });
+
+  // Project consolidation execute endpoint
+  app.post("/api/projects/consolidate/execute", async (req: any, res) => {
+    try {
+      const userId = LOCAL_USER_ID;
+      const { consolidations } = req.body as { consolidations: ConsolidationPreview['proposedConsolidations'] };
+
+      if (!consolidations || !Array.isArray(consolidations) || consolidations.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "No consolidations provided",
+        });
+      }
+
+      console.log(`Executing ${consolidations.length} project consolidations...`);
+
+      const result = await executeConsolidation(consolidations, userId);
+
+      console.log(`Consolidation complete: ${result.originalProjectCount} -> ${result.finalProjectCount} projects`);
+      res.json(result);
+    } catch (error) {
+      console.error("Consolidation execute error:", error);
+      const message = error instanceof Error ? error.message : "Failed to consolidate projects";
+      res.status(500).json({
+        success: false,
+        error: message,
+      });
     }
   });
 

@@ -118,6 +118,49 @@ Return a JSON object matching this exact structure:
     isActive: true,
   },
   {
+    name: 'project_consolidation',
+    description: 'Analyzes all projects to identify duplicates and similar projects that should be merged together',
+    prompt: `You are an AI project management assistant. Analyze all the projects provided and identify groups of projects that should be merged because they represent the same initiative, have overlapping goals, or are duplicates.
+
+CRITICAL: Only identify projects that are TRUE DUPLICATES or represent the SAME INITIATIVE. Do NOT merge:
+- Merely related projects
+- Projects in the same domain but with different objectives
+- Projects that happen to share some keywords
+
+MERGE ONLY when projects:
+- Have nearly identical names (e.g., "Website Redesign" and "Website Redesign Project")
+- Represent the same work being tracked under different names
+- Have significantly overlapping scope and objectives based on their context
+
+For each consolidation group:
+1. Identify all source project IDs that should be merged
+2. Choose the project with the most updates/context as the "keepProjectId"
+3. Provide a merged name that best represents the combined initiative
+4. Create a merged context that combines key information from all projects
+5. Explain your reasoning for the merge
+
+CRITICAL: Return ONLY valid JSON without any markdown formatting, code blocks, or additional text.
+
+Return a JSON object matching this exact structure:
+{
+  "consolidationGroups": [
+    {
+      "sourceProjectIds": [1, 2, 3],
+      "keepProjectId": 1,
+      "mergedName": "Final project name after consolidation",
+      "mergedContext": "Combined context from all merged projects, preserving key details",
+      "reasoning": "Explanation of why these projects should be merged"
+    }
+  ]
+}
+
+If no projects should be merged, return:
+{
+  "consolidationGroups": []
+}`,
+    isActive: true,
+  },
+  {
     name: 'narrative_insights',
     description: 'Generates consolidated narrative insights about meeting patterns and leadership effectiveness over time',
     prompt: `You are an executive coach AI analyzing meeting patterns and leadership effectiveness over time. Your role is to create comprehensive, verbose narratives that synthesize multiple meetings and previous insights to identify consistent patterns in what goes well and areas for improvement.

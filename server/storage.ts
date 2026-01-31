@@ -29,7 +29,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserDisplayName(userId: string, displayName: string): Promise<User>;
-  
+
   // Meeting operations
   createMeeting(meeting: InsertMeeting): Promise<Meeting>;
   getMeeting(id: number, userId: string): Promise<Meeting | undefined>;
@@ -37,7 +37,7 @@ export interface IStorage {
   getUserMeetings(userId: string): Promise<Meeting[]>;
   updateMeeting(id: number, updates: Partial<InsertMeeting>): Promise<Meeting | undefined>;
   deleteMeeting(id: number, userId: string): Promise<boolean>;
-  
+
   // Project operations
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: number, updates: Partial<InsertProject>): Promise<Project | undefined>;
@@ -45,6 +45,13 @@ export interface IStorage {
   getAllProjects(userId: string): Promise<Project[]>;
   getProjectByName(name: string, userId: string): Promise<Project | undefined>;
   deleteProject(id: number, userId: string): Promise<boolean>;
+  mergeProjects(
+    keepProjectId: number,
+    sourceProjectIds: number[],
+    mergedName: string,
+    mergedContext: string,
+    userId: string
+  ): Promise<{ updatesConsolidated: number; tasksReassigned: number }>;
   
   // Task operations
   createTask(task: InsertTask): Promise<Task>;
@@ -259,6 +266,60 @@ export class MemStorage implements IStorage {
     }
 
     return this.projects.delete(id);
+  }
+
+  async mergeProjects(
+    keepProjectId: number,
+    sourceProjectIds: number[],
+    mergedName: string,
+    mergedContext: string,
+    userId: string
+  ): Promise<{ updatesConsolidated: number; tasksReassigned: number }> {
+    const keepProject = this.projects.get(keepProjectId);
+    if (!keepProject || keepProject.userId !== userId) {
+      throw new Error('Target project not found');
+    }
+
+    let updatesConsolidated = 0;
+    let tasksReassigned = 0;
+
+    // Collect all updates from source projects
+    const allUpdates = [...keepProject.updates];
+
+    for (const sourceId of sourceProjectIds) {
+      const sourceProject = this.projects.get(sourceId);
+      if (!sourceProject || sourceProject.userId !== userId) continue;
+
+      // Add updates from source project
+      allUpdates.push(...sourceProject.updates);
+      updatesConsolidated += sourceProject.updates.length;
+
+      // Reassign tasks from source project to keep project
+      for (const [taskId, task] of this.tasks) {
+        if (task.projectId === sourceId) {
+          this.tasks.set(taskId, { ...task, projectId: keepProjectId });
+          tasksReassigned++;
+        }
+      }
+
+      // Delete the source project
+      this.projects.delete(sourceId);
+    }
+
+    // Sort updates by date
+    allUpdates.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Update the keep project
+    const updatedProject: Project = {
+      ...keepProject,
+      name: mergedName,
+      context: mergedContext,
+      updates: allUpdates,
+      lastUpdate: allUpdates[allUpdates.length - 1]?.update || keepProject.lastUpdate,
+    };
+    this.projects.set(keepProjectId, updatedProject);
+
+    return { updatesConsolidated, tasksReassigned };
   }
 
   async createTask(insertTask: InsertTask): Promise<Task> {
@@ -533,6 +594,62 @@ export class DatabaseStorage implements IStorage {
     // Delete the project
     const result = await db.delete(projects).where(and(eq(projects.id, id), eq(projects.userId, userId)));
     return (result.rowCount || 0) > 0;
+  }
+
+  async mergeProjects(
+    keepProjectId: number,
+    sourceProjectIds: number[],
+    mergedName: string,
+    mergedContext: string,
+    userId: string
+  ): Promise<{ updatesConsolidated: number; tasksReassigned: number }> {
+    // Verify keep project exists and belongs to user
+    const keepProject = await this.getProject(keepProjectId, userId);
+    if (!keepProject) {
+      throw new Error('Target project not found');
+    }
+
+    let updatesConsolidated = 0;
+    let tasksReassigned = 0;
+
+    // Collect all updates from source projects
+    const allUpdates = [...keepProject.updates];
+
+    for (const sourceId of sourceProjectIds) {
+      const sourceProject = await this.getProject(sourceId, userId);
+      if (!sourceProject) continue;
+
+      // Add updates from source project
+      allUpdates.push(...sourceProject.updates);
+      updatesConsolidated += sourceProject.updates.length;
+
+      // Count tasks that will be reassigned
+      const sourceTasks = await db.select().from(tasks).where(eq(tasks.projectId, sourceId));
+      tasksReassigned += sourceTasks.length;
+
+      // Reassign tasks from source project to keep project
+      await db.update(tasks)
+        .set({ projectId: keepProjectId })
+        .where(eq(tasks.projectId, sourceId));
+
+      // Delete the source project
+      await db.delete(projects).where(and(eq(projects.id, sourceId), eq(projects.userId, userId)));
+    }
+
+    // Sort updates by date
+    allUpdates.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Update the keep project with merged data
+    await db.update(projects)
+      .set({
+        name: mergedName,
+        context: mergedContext,
+        updates: allUpdates as { meetingId: number; update: string; date: string }[],
+        lastUpdate: allUpdates[allUpdates.length - 1]?.update || keepProject.lastUpdate,
+      })
+      .where(eq(projects.id, keepProjectId));
+
+    return { updatesConsolidated, tasksReassigned };
   }
 
   async createTask(task: InsertTask): Promise<Task> {

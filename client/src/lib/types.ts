@@ -54,3 +54,32 @@ export interface AnalysisResult {
     };
   };
 }
+
+// Project consolidation types
+export interface ConsolidationPreview {
+  success: boolean;
+  originalProjectCount: number;
+  proposedConsolidations: Array<{
+    sourceProjects: Array<{ id: number; name: string; updatesCount: number; tasksCount: number }>;
+    targetProject: { id: number; name: string };
+    mergedName: string;
+    mergedContext: string;
+    reason: string;
+  }>;
+  noChanges: boolean;
+  error?: string;
+}
+
+export interface ConsolidationResult {
+  success: boolean;
+  originalProjectCount: number;
+  finalProjectCount: number;
+  consolidations: Array<{
+    sourceProjects: Array<{ id: number; name: string }>;
+    targetProject: { id: number; name: string; mergedContext: string };
+    updatesConsolidated: number;
+    tasksReassigned: number;
+    reason: string;
+  }>;
+  error?: string;
+}
