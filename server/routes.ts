@@ -30,6 +30,99 @@ const LOCAL_USER_INFO = {
   email: "local@localhost",
 };
 
+const MAX_CONSOLIDATION_PASSES = 5;
+
+async function runProjectConsolidationUntilUnique(userId: string): Promise<void> {
+  for (let pass = 1; pass <= MAX_CONSOLIDATION_PASSES; pass++) {
+    const projects = await storage.getAllProjects(userId);
+    const tasks = await storage.getAllTasks(userId);
+    const preview = await analyzeProjectConsolidation(projects, tasks, userId);
+
+    if (!preview.success) {
+      console.error("Project consolidation analysis failed:", preview.error);
+      return;
+    }
+
+    if (preview.noChanges || preview.proposedConsolidations.length === 0) {
+      console.log(`✓ Project consolidation complete after ${pass - 1} pass(es)`);
+      return;
+    }
+
+    console.log(`Executing consolidation pass ${pass} with ${preview.proposedConsolidations.length} group(s)...`);
+    const result = await executeConsolidation(preview.proposedConsolidations, userId);
+
+    if (!result.success) {
+      console.error("Project consolidation execution failed:", result.error);
+      return;
+    }
+  }
+
+  console.warn(`Project consolidation stopped after ${MAX_CONSOLIDATION_PASSES} passes`);
+}
+
+async function generateThemesForUser(userId: string) {
+  const allProjects = await storage.getAllProjects(userId);
+  const activeProjects = allProjects.filter((project) => project.status !== "done");
+  const projectsForThemes = activeProjects.length > 0 ? activeProjects : allProjects;
+
+  if (projectsForThemes.length === 0) {
+    return [];
+  }
+
+  const analysis = await analyzeProjectThemes(projectsForThemes, userId);
+  const validProjectIds = new Set(projectsForThemes.map((project) => project.id));
+
+  await storage.clearProjectThemes(userId);
+  await storage.deleteThemesForUser(userId);
+
+  const assignedProjectIds = new Set<number>();
+  const createdThemes = [];
+
+  for (const themeData of analysis.themes) {
+    const filteredProjectIds = Array.from(new Set(themeData.projectIds)).filter(
+      (id) => validProjectIds.has(id) && !assignedProjectIds.has(id)
+    );
+    if (filteredProjectIds.length === 0) {
+      continue;
+    }
+
+    filteredProjectIds.forEach((id) => assignedProjectIds.add(id));
+
+    const createdTheme = await storage.createTheme({
+      userId,
+      name: themeData.name,
+      description: themeData.description,
+      reasoning: themeData.reasoning || null,
+    });
+
+    for (const projectId of filteredProjectIds) {
+      await storage.updateProjectTheme(projectId, createdTheme.id);
+    }
+
+    createdThemes.push(createdTheme);
+  }
+
+  const unassignedProjects = projectsForThemes.filter(
+    (project) => !assignedProjectIds.has(project.id)
+  );
+  if (unassignedProjects.length > 0) {
+    const fallbackTheme = await storage.createTheme({
+      userId,
+      name: "General Focus",
+      description: "Projects that do not fit cleanly into other themes.",
+      reasoning: "Assigned as a fallback for ungrouped projects.",
+    });
+
+    for (const project of unassignedProjects) {
+      await storage.updateProjectTheme(project.id, fallbackTheme.id);
+    }
+
+    createdThemes.push(fallbackTheme);
+  }
+
+  return createdThemes;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Analyze meeting transcript
   app.post("/api/analyze", async (req: any, res) => {
@@ -185,6 +278,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error('Failed to generate narrative insights:', error);
         // Don't fail the entire request if narrative generation fails
+      }
+
+      // Consolidate projects until unique, then refresh themes
+      try {
+        await runProjectConsolidationUntilUnique(userId);
+        await generateThemesForUser(userId);
+      } catch (error) {
+        console.error("Post-analysis consolidation/theme refresh failed:", error);
+        // Don't fail the entire request if consolidation/theme refresh fails
       }
 
       res.json({
@@ -346,6 +448,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await updateInsightsWithNarrative(userId, meeting, userInfo);
       } catch (error) {
         console.error("Failed to generate narrative insights in webhook:", error);
+      }
+
+      // Consolidate projects until unique, then refresh themes
+      try {
+        await runProjectConsolidationUntilUnique(userId);
+        await generateThemesForUser(userId);
+      } catch (error) {
+        console.error("Webhook consolidation/theme refresh failed:", error);
       }
 
       console.log(`✓ Webhook: Created meeting ${meeting.id} with ${createdTasks.length} tasks and ${createdProjects.length} projects`);
@@ -657,65 +767,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/themes/generate", async (req: any, res) => {
     try {
       const userId = LOCAL_USER_ID;
-      const allProjects = await storage.getAllProjects(userId);
-      const activeProjects = allProjects.filter((project) => project.status !== "done");
-      const projectsForThemes = activeProjects.length > 0 ? activeProjects : allProjects;
-
-      if (projectsForThemes.length === 0) {
-        return res.json({ success: true, themes: [] });
-      }
-
-      const analysis = await analyzeProjectThemes(projectsForThemes, userId);
-      const validProjectIds = new Set(projectsForThemes.map((project) => project.id));
-
-      await storage.clearProjectThemes(userId);
-      await storage.deleteThemesForUser(userId);
-
-      const assignedProjectIds = new Set<number>();
-      const createdThemes = [];
-
-      for (const themeData of analysis.themes) {
-        const filteredProjectIds = Array.from(new Set(themeData.projectIds)).filter(
-          (id) => validProjectIds.has(id) && !assignedProjectIds.has(id)
-        );
-        if (filteredProjectIds.length === 0) {
-          continue;
-        }
-
-        filteredProjectIds.forEach((id) => assignedProjectIds.add(id));
-
-        const createdTheme = await storage.createTheme({
-          userId,
-          name: themeData.name,
-          description: themeData.description,
-          reasoning: themeData.reasoning || null,
-        });
-
-        for (const projectId of filteredProjectIds) {
-          await storage.updateProjectTheme(projectId, createdTheme.id);
-        }
-
-        createdThemes.push(createdTheme);
-      }
-
-      const unassignedProjects = projectsForThemes.filter(
-        (project) => !assignedProjectIds.has(project.id)
-      );
-      if (unassignedProjects.length > 0) {
-        const fallbackTheme = await storage.createTheme({
-          userId,
-          name: "General Focus",
-          description: "Projects that do not fit cleanly into other themes.",
-          reasoning: "Assigned as a fallback for ungrouped projects.",
-        });
-
-        for (const project of unassignedProjects) {
-          await storage.updateProjectTheme(project.id, fallbackTheme.id);
-        }
-
-        createdThemes.push(fallbackTheme);
-      }
-
+      const createdThemes = await generateThemesForUser(userId);
       res.json({ success: true, themes: createdThemes });
     } catch (error) {
       console.error("Theme generation error:", error);
