@@ -668,8 +668,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const analysis = await analyzeProjectThemes(projectsForThemes, userId);
       const validProjectIds = new Set(projectsForThemes.map((project) => project.id));
 
-      await storage.deleteThemesForUser(userId);
       await storage.clearProjectThemes(userId);
+      await storage.deleteThemesForUser(userId);
 
       const assignedProjectIds = new Set<number>();
       const createdThemes = [];

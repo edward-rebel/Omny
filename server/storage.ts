@@ -310,6 +310,7 @@ export class MemStorage implements IStorage {
   }
 
   async deleteThemesForUser(userId: string): Promise<void> {
+    await this.clearProjectThemes(userId);
     for (const [themeId, theme] of this.themes) {
       if (theme.userId === userId) {
         this.themes.delete(themeId);
@@ -743,6 +744,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteThemesForUser(userId: string): Promise<void> {
+    await this.clearProjectThemes(userId);
     await db.delete(themes).where(eq(themes.userId, userId));
   }
 

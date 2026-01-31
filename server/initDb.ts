@@ -105,6 +105,10 @@ ALTER TABLE meetings ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manu
 
 -- Add theme reference to projects table
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS theme_id INTEGER REFERENCES themes(id);
+ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_theme_id_fkey;
+ALTER TABLE projects
+  ADD CONSTRAINT projects_theme_id_fkey
+  FOREIGN KEY (theme_id) REFERENCES themes(id) ON DELETE SET NULL;
 
 -- API Keys table for webhook authentication
 CREATE TABLE IF NOT EXISTS api_keys (
