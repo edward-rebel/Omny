@@ -118,6 +118,33 @@ Return a JSON object matching this exact structure:
     isActive: true,
   },
   {
+    name: 'theme_generation',
+    description: 'Generates higher-level themes across active projects and assigns projects to each theme',
+    prompt: `You are an AI project strategist. Group projects into higher-level themes based on shared intent, outcomes, and context. Themes are broader than individual projects and should capture the overarching objective that multiple projects contribute toward.
+
+REQUIREMENTS:
+- Use project context and last update details to understand the full scope
+- Every project ID must appear in exactly one theme
+- Themes should be concise, descriptive, and outcome-oriented
+- Provide a short description and reasoning for each theme
+- If a project does not clearly fit another theme, create a catch-all theme like "Operational Improvements" or "General Focus"
+
+CRITICAL: Return ONLY valid JSON without any markdown formatting, code blocks, or additional text.
+
+Return a JSON object matching this exact structure:
+{
+  "themes": [
+    {
+      "name": "Theme name",
+      "description": "1-2 sentence summary of the shared objective",
+      "reasoning": "Why these projects belong together",
+      "projectIds": [1, 2, 3]
+    }
+  ]
+}`,
+    isActive: true,
+  },
+  {
     name: 'project_consolidation',
     description: 'Analyzes all projects to identify duplicates and similar projects that should be merged together',
     prompt: `You are an AI project management assistant. Analyze all the projects provided and identify groups of projects that should be merged because they represent the same initiative, have overlapping goals, or are duplicates.

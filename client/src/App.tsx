@@ -10,6 +10,8 @@ import MeetingDetail from "@/pages/MeetingDetail";
 import Todos from "@/pages/Todos";
 import Projects from "@/pages/Projects";
 import ProjectDetail from "@/pages/ProjectDetail";
+import Themes from "@/pages/Themes";
+import ThemeDetail from "@/pages/ThemeDetail";
 import Insights from "@/pages/Insights";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
@@ -25,6 +27,8 @@ function Router() {
       <Route path="/todos" component={Todos} />
       <Route path="/projects" component={Projects} />
       <Route path="/project/:id" component={ProjectDetail} />
+      <Route path="/themes" component={Themes} />
+      <Route path="/themes/:id" component={ThemeDetail} />
       <Route path="/insights" component={Insights} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />

@@ -6,6 +6,7 @@ import { analyzeProjectRelationships, processProjectAnalysis } from "./services/
 import { updateInsightsWithNarrative } from "./services/analytics";
 import { getUserSpecificPrompt } from "./services/systemPrompts";
 import { analyzeProjectConsolidation, executeConsolidation, type ConsolidationPreview } from "./services/projectConsolidation";
+import { analyzeProjectThemes } from "./services/themeAnalysis";
 import { insertMeetingSchema, insertTaskSchema, insertProjectSchema, insertSystemPromptSchema, type Project, tasks, projects, meetings, metaInsights } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -599,6 +600,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Projects error:", error);
       res.status(500).json({ message: "Failed to fetch projects" });
+    }
+  });
+
+  // Get all themes
+  app.get("/api/themes", async (req: any, res) => {
+    try {
+      const userId = LOCAL_USER_ID;
+      const themes = await storage.getThemes(userId);
+      const allProjects = await storage.getAllProjects(userId);
+
+      const themesWithProjects = themes.map((theme) => {
+        const themeProjects = allProjects.filter((project) => project.themeId === theme.id);
+        return {
+          ...theme,
+          projectCount: themeProjects.length,
+          projects: themeProjects,
+        };
+      });
+
+      res.json(themesWithProjects);
+    } catch (error) {
+      console.error("Themes error:", error);
+      res.status(500).json({ message: "Failed to fetch themes" });
+    }
+  });
+
+  // Get theme details
+  app.get("/api/themes/:id", async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid theme ID" });
+      }
+
+      const userId = LOCAL_USER_ID;
+      const theme = await storage.getTheme(id, userId);
+      if (!theme) {
+        return res.status(404).json({ message: "Theme not found" });
+      }
+
+      const allProjects = await storage.getAllProjects(userId);
+      const themeProjects = allProjects.filter((project) => project.themeId === theme.id);
+
+      res.json({
+        theme,
+        projects: themeProjects,
+      });
+    } catch (error) {
+      console.error("Theme detail error:", error);
+      res.status(500).json({ message: "Failed to fetch theme" });
+    }
+  });
+
+  // Generate themes from active projects
+  app.post("/api/themes/generate", async (req: any, res) => {
+    try {
+      const userId = LOCAL_USER_ID;
+      const allProjects = await storage.getAllProjects(userId);
+      const activeProjects = allProjects.filter((project) => project.status !== "done");
+      const projectsForThemes = activeProjects.length > 0 ? activeProjects : allProjects;
+
+      if (projectsForThemes.length === 0) {
+        return res.json({ success: true, themes: [] });
+      }
+
+      const analysis = await analyzeProjectThemes(projectsForThemes, userId);
+      const validProjectIds = new Set(projectsForThemes.map((project) => project.id));
+
+      await storage.deleteThemesForUser(userId);
+      await storage.clearProjectThemes(userId);
+
+      const assignedProjectIds = new Set<number>();
+      const createdThemes = [];
+
+      for (const themeData of analysis.themes) {
+        const filteredProjectIds = Array.from(new Set(themeData.projectIds)).filter(
+          (id) => validProjectIds.has(id) && !assignedProjectIds.has(id)
+        );
+        if (filteredProjectIds.length === 0) {
+          continue;
+        }
+
+        filteredProjectIds.forEach((id) => assignedProjectIds.add(id));
+
+        const createdTheme = await storage.createTheme({
+          userId,
+          name: themeData.name,
+          description: themeData.description,
+          reasoning: themeData.reasoning || null,
+        });
+
+        for (const projectId of filteredProjectIds) {
+          await storage.updateProjectTheme(projectId, createdTheme.id);
+        }
+
+        createdThemes.push(createdTheme);
+      }
+
+      const unassignedProjects = projectsForThemes.filter(
+        (project) => !assignedProjectIds.has(project.id)
+      );
+      if (unassignedProjects.length > 0) {
+        const fallbackTheme = await storage.createTheme({
+          userId,
+          name: "General Focus",
+          description: "Projects that do not fit cleanly into other themes.",
+          reasoning: "Assigned as a fallback for ungrouped projects.",
+        });
+
+        for (const project of unassignedProjects) {
+          await storage.updateProjectTheme(project.id, fallbackTheme.id);
+        }
+
+        createdThemes.push(fallbackTheme);
+      }
+
+      res.json({ success: true, themes: createdThemes });
+    } catch (error) {
+      console.error("Theme generation error:", error);
+      const message = error instanceof Error ? error.message : "Failed to generate themes";
+      res.status(500).json({ success: false, message });
     }
   });
 

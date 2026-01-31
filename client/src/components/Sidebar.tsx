@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Brain, Home, Plus, FolderOpen, Settings, MessageSquare, CheckSquare, BarChart3, Menu } from "lucide-react";
+import { Brain, Home, Plus, FolderOpen, Settings, MessageSquare, CheckSquare, BarChart3, Menu, Layers } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -11,6 +11,7 @@ const navItems = [
   { path: "/meetings", label: "Meetings", icon: MessageSquare },
   { path: "/todos", label: "Todos", icon: CheckSquare },
   { path: "/projects", label: "Projects", icon: FolderOpen },
+  { path: "/themes", label: "Themes", icon: Layers },
   { path: "/insights", label: "Insights", icon: BarChart3 },
   { path: "/settings", label: "Settings", icon: Settings },
 ];

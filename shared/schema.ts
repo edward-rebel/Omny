@@ -44,9 +44,19 @@ export const meetings = pgTable("meetings", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const themes = pgTable("themes", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  reasoning: text("reasoning"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").references(() => users.id).notNull(),
+  themeId: integer("theme_id").references(() => themes.id),
   name: text("name").notNull(),
   status: text("status").notNull(), // "open" | "hold" | "done"
   lastUpdate: text("last_update").notNull(),
@@ -114,6 +124,11 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
   createdAt: true,
 });
 
+export const insertThemeSchema = createInsertSchema(themes).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertTaskSchema = createInsertSchema(tasks).omit({
   id: true,
   createdAt: true,
@@ -142,6 +157,8 @@ export type Meeting = typeof meetings.$inferSelect;
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
+export type Theme = typeof themes.$inferSelect;
+export type InsertTheme = z.infer<typeof insertThemeSchema>;
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type MetaInsights = typeof metaInsights.$inferSelect;

@@ -1,4 +1,4 @@
-import type { Meeting, Project, Task, MetaInsights } from "@shared/schema";
+import type { Meeting, Project, Task, MetaInsights, Theme } from "@shared/schema";
 
 export interface DashboardData {
   myTasks: Task[];
@@ -22,6 +22,16 @@ export interface ProjectDetailData {
   project: Project;
   tasks: Task[];
   relatedMeetings: Meeting[];
+}
+
+export interface ThemeWithProjects extends Theme {
+  projectCount: number;
+  projects: Project[];
+}
+
+export interface ThemeDetailData {
+  theme: Theme;
+  projects: Project[];
 }
 
 export interface AnalysisResult {

@@ -1,6 +1,7 @@
 import {
   meetings,
   projects,
+  themes,
   tasks,
   metaInsights,
   systemPrompts,
@@ -10,6 +11,8 @@ import {
   type InsertMeeting,
   type Project,
   type InsertProject,
+  type Theme,
+  type InsertTheme,
   type Task,
   type InsertTask,
   type MetaInsights,
@@ -52,6 +55,14 @@ export interface IStorage {
     mergedContext: string,
     userId: string
   ): Promise<{ updatesConsolidated: number; tasksReassigned: number }>;
+
+  // Theme operations
+  createTheme(theme: InsertTheme): Promise<Theme>;
+  getThemes(userId: string): Promise<Theme[]>;
+  getTheme(id: number, userId: string): Promise<Theme | undefined>;
+  deleteThemesForUser(userId: string): Promise<void>;
+  clearProjectThemes(userId: string): Promise<void>;
+  updateProjectTheme(projectId: number, themeId: number | null): Promise<Project | undefined>;
   
   // Task operations
   createTask(task: InsertTask): Promise<Task>;
@@ -84,24 +95,28 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private meetings: Map<number, Meeting>;
   private projects: Map<number, Project>;
+  private themes: Map<number, Theme>;
   private tasks: Map<number, Task>;
   private users: Map<string, User>;
   private systemPrompts: Map<string, SystemPrompt>;
   private metaInsights: MetaInsights | undefined;
   private currentMeetingId: number;
   private currentProjectId: number;
+  private currentThemeId: number;
   private currentTaskId: number;
   private currentSystemPromptId: number;
 
   constructor() {
     this.meetings = new Map();
     this.projects = new Map();
+    this.themes = new Map();
     this.tasks = new Map();
     this.users = new Map();
     this.systemPrompts = new Map();
     this.metaInsights = undefined;
     this.currentMeetingId = 1;
     this.currentProjectId = 1;
+    this.currentThemeId = 1;
     this.currentTaskId = 1;
     this.currentSystemPromptId = 1;
   }
@@ -217,6 +232,7 @@ export class MemStorage implements IStorage {
     const project: Project = {
       id,
       userId: insertProject.userId,
+      themeId: insertProject.themeId || null,
       name: insertProject.name,
       status: insertProject.status,
       lastUpdate: insertProject.lastUpdate,
@@ -266,6 +282,55 @@ export class MemStorage implements IStorage {
     }
 
     return this.projects.delete(id);
+  }
+
+  async createTheme(insertTheme: InsertTheme): Promise<Theme> {
+    const id = this.currentThemeId++;
+    const theme: Theme = {
+      id,
+      userId: insertTheme.userId,
+      name: insertTheme.name,
+      description: insertTheme.description,
+      reasoning: insertTheme.reasoning || null,
+      createdAt: new Date(),
+    };
+    this.themes.set(id, theme);
+    return theme;
+  }
+
+  async getThemes(userId: string): Promise<Theme[]> {
+    return Array.from(this.themes.values())
+      .filter(theme => theme.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getTheme(id: number, userId: string): Promise<Theme | undefined> {
+    const theme = this.themes.get(id);
+    return theme?.userId === userId ? theme : undefined;
+  }
+
+  async deleteThemesForUser(userId: string): Promise<void> {
+    for (const [themeId, theme] of this.themes) {
+      if (theme.userId === userId) {
+        this.themes.delete(themeId);
+      }
+    }
+  }
+
+  async clearProjectThemes(userId: string): Promise<void> {
+    for (const [projectId, project] of this.projects) {
+      if (project.userId === userId && project.themeId !== null) {
+        this.projects.set(projectId, { ...project, themeId: null });
+      }
+    }
+  }
+
+  async updateProjectTheme(projectId: number, themeId: number | null): Promise<Project | undefined> {
+    const project = this.projects.get(projectId);
+    if (!project) return undefined;
+    const updatedProject = { ...project, themeId };
+    this.projects.set(projectId, updatedProject);
+    return updatedProject;
   }
 
   async mergeProjects(
@@ -548,6 +613,7 @@ export class DatabaseStorage implements IStorage {
   async createProject(project: InsertProject): Promise<Project> {
     const [created] = await db.insert(projects).values({
       ...project,
+      themeId: project.themeId ?? null,
       updates: project.updates as { meetingId: number; update: string; date: string; }[]
     }).returning();
     return created;
@@ -557,6 +623,7 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db.update(projects)
       .set({
         ...updates,
+        themeId: updates.themeId,
         updates: updates.updates as { meetingId: number; update: string; date: string; }[] | undefined
       })
       .where(eq(projects.id, id))
@@ -655,6 +722,42 @@ export class DatabaseStorage implements IStorage {
   async createTask(task: InsertTask): Promise<Task> {
     const [created] = await db.insert(tasks).values(task).returning();
     return created;
+  }
+
+  async createTheme(theme: InsertTheme): Promise<Theme> {
+    const [created] = await db.insert(themes).values(theme).returning();
+    return created;
+  }
+
+  async getThemes(userId: string): Promise<Theme[]> {
+    const allThemes = await db.select().from(themes)
+      .where(eq(themes.userId, userId))
+      .orderBy(desc(themes.createdAt));
+    return allThemes;
+  }
+
+  async getTheme(id: number, userId: string): Promise<Theme | undefined> {
+    const [theme] = await db.select().from(themes)
+      .where(and(eq(themes.id, id), eq(themes.userId, userId)));
+    return theme || undefined;
+  }
+
+  async deleteThemesForUser(userId: string): Promise<void> {
+    await db.delete(themes).where(eq(themes.userId, userId));
+  }
+
+  async clearProjectThemes(userId: string): Promise<void> {
+    await db.update(projects)
+      .set({ themeId: null })
+      .where(eq(projects.userId, userId));
+  }
+
+  async updateProjectTheme(projectId: number, themeId: number | null): Promise<Project | undefined> {
+    const [updated] = await db.update(projects)
+      .set({ themeId })
+      .where(eq(projects.id, projectId))
+      .returning();
+    return updated || undefined;
   }
 
   async getTasksByMeeting(meetingId: number): Promise<Task[]> {

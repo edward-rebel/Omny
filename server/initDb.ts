@@ -39,6 +39,16 @@ CREATE TABLE IF NOT EXISTS meetings (
   created_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
 
+-- Themes table
+CREATE TABLE IF NOT EXISTS themes (
+  id SERIAL PRIMARY KEY,
+  user_id VARCHAR NOT NULL REFERENCES users(id),
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  reasoning TEXT,
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
 -- Projects table
 CREATE TABLE IF NOT EXISTS projects (
   id SERIAL PRIMARY KEY,
@@ -92,6 +102,9 @@ CREATE TABLE IF NOT EXISTS system_prompts (
 
 -- Add source column to meetings table (for webhook vs manual)
 ALTER TABLE meetings ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual';
+
+-- Add theme reference to projects table
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS theme_id INTEGER REFERENCES themes(id);
 
 -- API Keys table for webhook authentication
 CREATE TABLE IF NOT EXISTS api_keys (
