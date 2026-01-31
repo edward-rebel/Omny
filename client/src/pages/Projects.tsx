@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Sidebar, MobileHeader } from "@/components/Sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -31,7 +32,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronRight, Trash2, Search, X, Layers, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { Trash2, Search, X, Layers, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import type { ProjectWithTasks, ConsolidationPreview, ConsolidationResult } from "@/lib/types";
 
 export default function Projects() {
@@ -232,6 +233,15 @@ export default function Projects() {
     }
   };
 
+  const getStatusBorderColor = (status: string) => {
+    switch (status) {
+      case "open": return "border-l-green-500";
+      case "hold": return "border-l-amber-500";
+      case "done": return "border-l-slate-400";
+      default: return "border-l-blue-500";
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
       <Sidebar />
@@ -319,71 +329,89 @@ export default function Projects() {
           <div className="max-w-6xl mx-auto">
             {projects && projects.length > 0 ? (
               filteredProjects.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
-                {filteredProjects.map((project) => (
-                  <div key={project.id} className="bg-white rounded-xl border border-slate-200 p-4 md:p-6 flex flex-col min-h-[280px] md:h-96">
-                    <div className="flex items-start justify-between mb-3 gap-2">
-                      <h3 className="text-base md:text-lg font-semibold text-slate-900 line-clamp-2">{project.name}</h3>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge className={`${getStatusColor(project.status)} text-xs md:text-sm font-medium`}>
-                          {getStatusLabel(project.status)}
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                          onClick={(e) => handleDeleteClick(e, project)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
+                <div className="space-y-3 md:space-y-4">
+                  {filteredProjects.map((project) => (
+                    <Link key={project.id} href={`/project/${project.id}`}>
+                      <Card
+                        className={`hover:shadow-md transition-shadow cursor-pointer border-l-4 ${getStatusBorderColor(project.status)}`}
+                      >
+                        <CardHeader className="p-4 md:p-6 pb-2 md:pb-3">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <CardTitle className="text-base md:text-lg text-slate-900 mb-2 truncate">
+                                {project.name}
+                              </CardTitle>
+                              <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-slate-600">
+                                <div>
+                                  <span className="text-slate-500">Last update:</span>
+                                  <span className="text-slate-900 font-medium ml-1">
+                                    {new Date(project.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-500">Updates:</span>
+                                  <span className="text-slate-900 font-medium ml-1">{project.updates.length}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-500">Open tasks:</span>
+                                  <span className="text-slate-900 font-medium ml-1">{project.openTasksCount}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Badge className={`${getStatusColor(project.status)} text-xs md:text-sm font-medium`}>
+                                {getStatusLabel(project.status)}
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                onClick={(e) => handleDeleteClick(e, project)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="p-4 md:p-6 pt-0">
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="text-xs md:text-sm font-medium text-slate-900 mb-1">Context</h4>
+                              {project.context ? (
+                                <p className="text-xs md:text-sm text-slate-600 line-clamp-3 md:line-clamp-4 leading-relaxed">
+                                  {project.context}
+                                </p>
+                              ) : (
+                                <p className="text-slate-400 italic text-xs md:text-sm">No context provided</p>
+                              )}
+                            </div>
 
-                    <div className="text-xs md:text-sm mb-3">
-                      <span className="text-slate-500">Last Update:</span>
-                      <span className="text-slate-900 font-medium ml-1">
-                        {new Date(project.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center py-2 mb-3 md:mb-4 border-t border-b border-slate-100">
-                      <div className="text-xs md:text-sm">
-                        <span className="text-slate-500">Updates:</span>
-                        <span className="text-slate-900 font-medium ml-1">{project.updates.length}</span>
-                      </div>
-                      <div className="text-xs md:text-sm">
-                        <span className="text-slate-500">Open Tasks:</span>
-                        <span className="text-slate-900 font-medium ml-1">{project.openTasksCount}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex-grow mb-3 md:mb-4">
-                      {project.context && (
-                        <p className="text-xs md:text-sm text-slate-600 line-clamp-3 md:line-clamp-4 leading-relaxed">{project.context}</p>
-                      )}
-                    </div>
-
-                    <div className="mt-auto">
-                      <Link href={`/project/${project.id}`}>
-                        <Button variant="outline" className="w-full flex items-center justify-center gap-2 text-sm">
-                          View Details
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs md:text-sm">
+                              <div className="text-slate-500 truncate">
+                                {project.openTasks?.slice(0, 3).map((task) => task.title).join(", ") ||
+                                  "No tasks linked"}
+                              </div>
+                              <div className="text-blue-600 font-medium shrink-0">
+                                View Project →
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 md:py-12">
+                  <Search className="w-12 h-12 md:w-16 md:h-16 text-slate-300 mx-auto mb-4" />
+                  <h3 className="text-base md:text-lg font-medium text-slate-900 mb-2">No matching projects</h3>
+                  <p className="text-slate-600 mb-6 text-sm md:text-base">Try adjusting your search or filters</p>
+                  <Button variant="outline" onClick={clearFilters}>
+                    Clear Filters
+                  </Button>
+                </div>
+              )
             ) : (
-              <div className="text-center py-8 md:py-12">
-                <Search className="w-12 h-12 md:w-16 md:h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-base md:text-lg font-medium text-slate-900 mb-2">No matching projects</h3>
-                <p className="text-slate-600 mb-6 text-sm md:text-base">Try adjusting your search or filters</p>
-                <Button variant="outline" onClick={clearFilters}>
-                  Clear Filters
-                </Button>
-              </div>
-            )) : (
               <div className="text-center py-8 md:py-12">
                 <p className="text-slate-600 mb-4 text-sm md:text-base">No projects found.</p>
                 <p className="text-xs md:text-sm text-slate-500 mb-6">
